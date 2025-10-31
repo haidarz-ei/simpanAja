@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Package, User, MapPin, Truck } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 //todo: remove mock functionality
 const mockCouriers = [
@@ -18,16 +19,19 @@ export default function ShippingForm() {
   const [step, setStep] = useState(1);
   const [selectedCourier, setSelectedCourier] = useState("");
   const [packageCode, setPackageCode] = useState("");
+  const [packingOptions, setPackingOptions] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     senderName: "",
     senderPhone: "",
     senderAddress: "",
     senderCity: "",
+    senderProvince: "",
     senderPostalCode: "",
     receiverName: "",
     receiverPhone: "",
     receiverAddress: "",
     receiverCity: "",
+    receiverProvince: "",
     receiverPostalCode: "",
     packageWeight: "",
     packageLength: "",
@@ -131,6 +135,17 @@ export default function ShippingForm() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="sender-province">Provinsi</Label>
+                  <Input
+                    id="sender-province"
+                    data-testid="input-sender-province"
+                    value={formData.senderProvince}
+                    onChange={(e) => handleInputChange('senderProvince', e.target.value)}
+                    placeholder="Nama provinsi"
+                  />
+                </div>
+                
+                <div>
                   <Label htmlFor="sender-city">Kota/Kabupaten</Label>
                   <Input
                     id="sender-city"
@@ -140,17 +155,17 @@ export default function ShippingForm() {
                     placeholder="Nama kota"
                   />
                 </div>
-                
-                <div>
-                  <Label htmlFor="sender-postal">Kode Pos</Label>
-                  <Input
-                    id="sender-postal"
-                    data-testid="input-sender-postal"
-                    value={formData.senderPostalCode}
-                    onChange={(e) => handleInputChange('senderPostalCode', e.target.value)}
-                    placeholder="12345"
-                  />
-                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="sender-postal">Kode Pos</Label>
+                <Input
+                  id="sender-postal"
+                  data-testid="input-sender-postal"
+                  value={formData.senderPostalCode}
+                  onChange={(e) => handleInputChange('senderPostalCode', e.target.value)}
+                  placeholder="12345"
+                />
               </div>
             </div>
           </div>
@@ -200,6 +215,17 @@ export default function ShippingForm() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="receiver-province">Provinsi</Label>
+                  <Input
+                    id="receiver-province"
+                    data-testid="input-receiver-province"
+                    value={formData.receiverProvince}
+                    onChange={(e) => handleInputChange('receiverProvince', e.target.value)}
+                    placeholder="Nama provinsi"
+                  />
+                </div>
+                
+                <div>
                   <Label htmlFor="receiver-city">Kota/Kabupaten</Label>
                   <Input
                     id="receiver-city"
@@ -209,17 +235,17 @@ export default function ShippingForm() {
                     placeholder="Nama kota"
                   />
                 </div>
-                
-                <div>
-                  <Label htmlFor="receiver-postal">Kode Pos</Label>
-                  <Input
-                    id="receiver-postal"
-                    data-testid="input-receiver-postal"
-                    value={formData.receiverPostalCode}
-                    onChange={(e) => handleInputChange('receiverPostalCode', e.target.value)}
-                    placeholder="12345"
-                  />
-                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="receiver-postal">Kode Pos</Label>
+                <Input
+                  id="receiver-postal"
+                  data-testid="input-receiver-postal"
+                  value={formData.receiverPostalCode}
+                  onChange={(e) => handleInputChange('receiverPostalCode', e.target.value)}
+                  placeholder="12345"
+                />
               </div>
             </div>
           </div>
@@ -234,15 +260,17 @@ export default function ShippingForm() {
             
             <div className="space-y-4">
               <div>
-                <Label htmlFor="package-weight">Berat Paket (gram)</Label>
+                <Label htmlFor="package-weight">Berat Paket (kg)</Label>
                 <Input
                   id="package-weight"
                   data-testid="input-package-weight"
                   type="number"
+                  step="0.1"
                   value={formData.packageWeight}
                   onChange={(e) => handleInputChange('packageWeight', e.target.value)}
-                  placeholder="1000"
+                  placeholder="1.5"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Contoh: 1.5 untuk 1.5 kg</p>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
@@ -331,6 +359,103 @@ export default function ShippingForm() {
                 ))}
               </div>
             </RadioGroup>
+
+            <div className="pt-6 border-t border-border">
+              <h3 className="font-semibold mb-4">Opsi Packing Tambahan</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Pilih layanan packing tambahan untuk melindungi paket Anda
+              </p>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="packing-bubble"
+                      checked={packingOptions.includes('bubble')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setPackingOptions([...packingOptions, 'bubble']);
+                        } else {
+                          setPackingOptions(packingOptions.filter(p => p !== 'bubble'));
+                        }
+                      }}
+                      data-testid="checkbox-packing-bubble"
+                    />
+                    <label htmlFor="packing-bubble" className="cursor-pointer">
+                      <div className="font-medium">Bubble Wrap</div>
+                      <div className="text-sm text-muted-foreground">Perlindungan standar untuk barang pecah belah</div>
+                    </label>
+                  </div>
+                  <div className="font-semibold">+ Rp 5.000</div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="packing-cardboard"
+                      checked={packingOptions.includes('cardboard')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setPackingOptions([...packingOptions, 'cardboard']);
+                        } else {
+                          setPackingOptions(packingOptions.filter(p => p !== 'cardboard'));
+                        }
+                      }}
+                      data-testid="checkbox-packing-cardboard"
+                    />
+                    <label htmlFor="packing-cardboard" className="cursor-pointer">
+                      <div className="font-medium">Kardus Tambahan</div>
+                      <div className="text-sm text-muted-foreground">Double kardus untuk perlindungan ekstra</div>
+                    </label>
+                  </div>
+                  <div className="font-semibold">+ Rp 8.000</div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="packing-wooden"
+                      checked={packingOptions.includes('wooden')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setPackingOptions([...packingOptions, 'wooden']);
+                        } else {
+                          setPackingOptions(packingOptions.filter(p => p !== 'wooden'));
+                        }
+                      }}
+                      data-testid="checkbox-packing-wooden"
+                    />
+                    <label htmlFor="packing-wooden" className="cursor-pointer">
+                      <div className="font-medium">Packing Kayu</div>
+                      <div className="text-sm text-muted-foreground">Untuk barang berat atau sangat berharga</div>
+                    </label>
+                  </div>
+                  <div className="font-semibold">+ Rp 25.000</div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="packing-insurance"
+                      checked={packingOptions.includes('insurance')}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setPackingOptions([...packingOptions, 'insurance']);
+                        } else {
+                          setPackingOptions(packingOptions.filter(p => p !== 'insurance'));
+                        }
+                      }}
+                      data-testid="checkbox-packing-insurance"
+                    />
+                    <label htmlFor="packing-insurance" className="cursor-pointer">
+                      <div className="font-medium">Asuransi Paket</div>
+                      <div className="text-sm text-muted-foreground">Ganti rugi hingga Rp 2.000.000 jika terjadi kerusakan</div>
+                    </label>
+                  </div>
+                  <div className="font-semibold">+ Rp 10.000</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -343,7 +468,7 @@ export default function ShippingForm() {
               
               <h2 className="text-2xl font-bold mb-2">Kode Paket Anda</h2>
               <p className="text-muted-foreground mb-6">
-                Simpan kode ini untuk diserahkan ke admin saat drop-off paket
+                Simpan dan terapkan kode ini pada paket pengirim
               </p>
               
               <div className="bg-card border-2 border-primary rounded-xl p-8 mb-6">

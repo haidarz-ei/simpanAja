@@ -7,14 +7,14 @@ export default function HeroSection() {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
       
       {/* Animated floating packages background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+      <div className="absolute inset-0 pointer-events-none opacity-20" style={{ top: '-10%', bottom: '-10%' }}>
         {[...Array(8)].map((_, i) => (
           <div
             key={i}
             className="absolute"
             style={{
               left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
+              top: `${10 + Math.random() * 70}%`,
               animation: `float ${15 + i * 2}s ease-in-out infinite`,
               animationDelay: `${i * 0.5}s`,
             }}
