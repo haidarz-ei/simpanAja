@@ -63,13 +63,8 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground">
               © 2024 SimpanAja. All rights reserved.
             </p>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>Didukung oleh:</span>
-              <div className="flex gap-3">
-                <span className="px-3 py-1 bg-muted rounded font-semibold">JNE</span>
-                <span className="px-3 py-1 bg-muted rounded font-semibold">J&T</span>
-                <span className="px-3 py-1 bg-muted rounded font-semibold">SiCepat</span>
-              </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>Terintegrasi dengan berbagai kurir terpercaya</span>
             </div>
           </div>
         </div>

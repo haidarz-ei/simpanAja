@@ -16,8 +16,8 @@ const steps = [
   {
     icon: CreditCard,
     number: "03",
-    title: "Bayar & Selesai",
-    description: "Lakukan pembayaran dan paket Anda siap untuk dijemput kurir"
+    title: "Bayar & Serahkan Paket",
+    description: "Lakukan pembayaran, dapatkan kode unik, dan serahkan paket Anda di locker kami"
   }
 ];
 

@@ -9,27 +9,30 @@ import { Package, TrendingUp, Clock, CheckCircle, Search, Eye } from "lucide-rea
 const mockShipments = [
   {
     id: "1",
-    trackingNumber: "SP-2024-001234",
+    packageCode: "SPAX9K2L",
+    trackingNumber: "JNE00123456789",
     senderName: "Ahmad Rizki",
     receiverName: "Siti Nurhaliza",
     receiverCity: "Jakarta",
     courier: "JNE REG",
-    status: "dikirim",
+    status: "shipped",
     createdAt: "2024-10-30T10:30:00",
   },
   {
     id: "2",
-    trackingNumber: "SP-2024-001235",
+    packageCode: "SPB7M4N9",
+    trackingNumber: "-",
     senderName: "Budi Santoso",
     receiverName: "Ani Wijaya",
     receiverCity: "Bandung",
     courier: "J&T EZ",
-    status: "pending",
+    status: "paid",
     createdAt: "2024-10-30T14:15:00",
   },
   {
     id: "3",
-    trackingNumber: "SP-2024-001236",
+    packageCode: "SPC3P8Q1",
+    trackingNumber: "SICEPAT987654321",
     senderName: "Dewi Lestari",
     receiverName: "Rudi Hermawan",
     receiverCity: "Surabaya",
@@ -37,13 +40,26 @@ const mockShipments = [
     status: "selesai",
     createdAt: "2024-10-29T09:20:00",
   },
+  {
+    id: "4",
+    packageCode: "SPD5R2T7",
+    trackingNumber: "-",
+    senderName: "Eko Prasetyo",
+    receiverName: "Linda Wijayanti",
+    receiverCity: "Medan",
+    courier: "JNE YES",
+    status: "pending",
+    createdAt: "2024-10-31T08:45:00",
+  },
 ];
 
 const getStatusBadge = (status: string) => {
   const variants: Record<string, { label: string; className: string }> = {
-    pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
-    dikirim: { label: "Dikirim", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-    selesai: { label: "Selesai", className: "bg-green-500/10 text-green-700 dark:text-green-400" },
+    pending: { label: "Menunggu Pembayaran", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
+    paid: { label: "Sudah Bayar", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+    processing: { label: "Sedang Diproses", className: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
+    shipped: { label: "Dikirim ke Kurir", className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400" },
+    selesai: { label: "Selesai (Di Locker)", className: "bg-green-500/10 text-green-700 dark:text-green-400" },
   };
   
   const variant = variants[status] || variants.pending;
@@ -58,6 +74,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredShipments = mockShipments.filter(shipment =>
+    shipment.packageCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
     shipment.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
     shipment.senderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     shipment.receiverName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -110,7 +127,7 @@ export default function AdminDashboard() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Cari nomor resi, pengirim, atau penerima..."
+              placeholder="Cari kode paket, nomor resi, pengirim, atau penerima..."
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -120,7 +137,8 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-4">
-          <div className="hidden md:grid grid-cols-6 gap-4 pb-4 border-b text-sm font-semibold text-muted-foreground">
+          <div className="hidden md:grid grid-cols-7 gap-4 pb-4 border-b text-sm font-semibold text-muted-foreground">
+            <div>Kode Paket</div>
             <div>Nomor Resi</div>
             <div>Pengirim</div>
             <div>Penerima</div>
@@ -132,12 +150,17 @@ export default function AdminDashboard() {
           {filteredShipments.map((shipment) => (
             <div
               key={shipment.id}
-              className="grid md:grid-cols-6 gap-4 p-4 border border-card-border rounded-lg hover-elevate"
+              className="grid md:grid-cols-7 gap-4 p-4 border border-card-border rounded-lg hover-elevate"
               data-testid={`shipment-row-${shipment.id}`}
             >
               <div>
+                <div className="md:hidden text-xs text-muted-foreground mb-1">Kode Paket</div>
+                <div className="font-mono text-sm font-bold text-primary">{shipment.packageCode}</div>
+              </div>
+              
+              <div>
                 <div className="md:hidden text-xs text-muted-foreground mb-1">Nomor Resi</div>
-                <div className="font-mono text-sm font-semibold">{shipment.trackingNumber}</div>
+                <div className="font-mono text-sm">{shipment.trackingNumber}</div>
               </div>
               
               <div>

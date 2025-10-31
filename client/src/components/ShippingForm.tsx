@@ -17,6 +17,7 @@ const mockCouriers = [
 export default function ShippingForm() {
   const [step, setStep] = useState(1);
   const [selectedCourier, setSelectedCourier] = useState("");
+  const [packageCode, setPackageCode] = useState("");
   const [formData, setFormData] = useState({
     senderName: "",
     senderPhone: "",
@@ -42,6 +43,12 @@ export default function ShippingForm() {
 
   const handleNext = () => {
     console.log('Moving to step', step + 1, formData);
+    if (step === 4 && selectedCourier) {
+      // Generate package code
+      const code = `SP${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      setPackageCode(code);
+      console.log('Generated package code:', code);
+    }
     setStep(step + 1);
   };
 
@@ -57,14 +64,14 @@ export default function ShippingForm() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <div key={s} className="flex items-center flex-1">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
                 s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 {s}
               </div>
-              {s < 4 && (
+              {s < 5 && (
                 <div className={`flex-1 h-1 mx-2 ${s < step ? 'bg-primary' : 'bg-muted'}`} />
               )}
             </div>
@@ -75,6 +82,7 @@ export default function ShippingForm() {
           <span>Penerima</span>
           <span>Paket</span>
           <span>Kurir</span>
+          <span>Kode</span>
         </div>
       </div>
 
@@ -326,8 +334,56 @@ export default function ShippingForm() {
           </div>
         )}
 
+        {step === 5 && (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                <Package className="w-10 h-10 text-primary" />
+              </div>
+              
+              <h2 className="text-2xl font-bold mb-2">Kode Paket Anda</h2>
+              <p className="text-muted-foreground mb-6">
+                Simpan kode ini untuk diserahkan ke admin saat drop-off paket
+              </p>
+              
+              <div className="bg-card border-2 border-primary rounded-xl p-8 mb-6">
+                <div className="text-sm text-muted-foreground mb-2">Kode Paket</div>
+                <div className="text-5xl font-bold text-primary tracking-wider font-mono" data-testid="text-package-code">
+                  {packageCode}
+                </div>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
+                <h3 className="font-semibold mb-3">Langkah Selanjutnya:</h3>
+                <ol className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex gap-2">
+                    <span className="font-semibold">1.</span>
+                    <span>Lakukan pembayaran sesuai metode yang dipilih</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold">2.</span>
+                    <span>Tunjukkan kode <strong className="text-foreground">{packageCode}</strong> ke admin saat drop-off</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold">3.</span>
+                    <span>Serahkan paket Anda di locker yang tersedia</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold">4.</span>
+                    <span>Admin akan memproses dan meneruskan ke kurir pilihan Anda</span>
+                  </li>
+                </ol>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                Nomor resi dari kurir akan dikirimkan setelah paket diproses oleh admin
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-4 mt-8">
-          {step > 1 && (
+          {step > 1 && step < 5 && (
             <Button
               variant="outline"
               onClick={handleBack}
@@ -346,12 +402,20 @@ export default function ShippingForm() {
             >
               Lanjutkan
             </Button>
+          ) : step === 4 ? (
+            <Button
+              onClick={handleNext}
+              className="flex-1"
+              data-testid="button-generate-code"
+              disabled={!selectedCourier}
+            >
+              Generate Kode Paket
+            </Button>
           ) : (
             <Button
               onClick={handleSubmit}
               className="flex-1"
-              data-testid="button-submit"
-              disabled={!selectedCourier}
+              data-testid="button-proceed-payment"
             >
               Lanjut ke Pembayaran
             </Button>

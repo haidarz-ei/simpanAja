@@ -7,35 +7,25 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link href="/">
-            <a className="flex items-center gap-2 font-bold text-xl text-foreground" data-testid="link-logo">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Package className="w-6 h-6 text-primary-foreground" />
-              </div>
-              SimpanAja
-            </a>
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-foreground" data-testid="link-logo">
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+              <Package className="w-6 h-6 text-primary-foreground" />
+            </div>
+            SimpanAja
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-home">
-                Beranda
-              </a>
+            <Link href="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-home">
+              Beranda
             </Link>
-            <Link href="/kirim">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-kirim">
-                Kirim Paket
-              </a>
+            <Link href="/kirim" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-kirim">
+              Kirim Paket
             </Link>
-            <Link href="/riwayat">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-riwayat">
-                Riwayat
-              </a>
+            <Link href="/riwayat" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-riwayat">
+              Riwayat
             </Link>
-            <Link href="/admin">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-admin">
-                Admin
-              </a>
+            <Link href="/admin" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-admin">
+              Admin
             </Link>
           </nav>
 
