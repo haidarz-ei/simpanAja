@@ -1,55 +1,81 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Package, CheckCircle2, AlertCircle, ArrowLeft, Minus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useLocation } from "wouter";
-
-interface PackageData {
-  id: string;
-  senderName?: string;
-  senderPhone?: string;
-  senderAddress?: string;
-  receiverName?: string;
-  receiverPhone?: string;
-  receiverAddress?: string;
-  packageWeight?: string;
-  packageDescription?: string;
-  isComplete: boolean;
-  lastUpdated: string;
-}
+import { ShipmentCard } from "@/components/ShipmentCard";
+import { PackageFooter } from "@/components/PackageFooter";
+import { packageService } from "@/lib/packageService";
+import { PackageData } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
+import Header from "@/components/Header";
 
 export default function Packages() {
   const [, navigate] = useLocation();
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load packages from localStorage (auto-save feature)
-    const savedPackages = localStorage.getItem('simpanaja_packages');
-    if (savedPackages) {
-      const parsed = JSON.parse(savedPackages);
-      // Filter out empty packages
-      const filtered = parsed.filter((pkg: PackageData) =>
-        pkg.senderName || pkg.receiverName || pkg.packageWeight
-      );
-      setPackages(filtered);
-    }
+    loadPackages();
   }, []);
 
+  const loadPackages = async () => {
+    try {
+      setLoading(true);
+      const data = await packageService.getPackages();
+      setPackages(data);
+    } catch (error) {
+      console.error('Error loading packages:', error);
+      // Don't show toast error for now since it's expected in development
+      // toast({
+      //   title: "Error",
+      //   description: "Gagal memuat data paket",
+      //   variant: "destructive",
+      // });
+      // Fallback to localStorage if Supabase fails
+      const savedPackages = localStorage.getItem('simpanaja_packages');
+      if (savedPackages) {
+        const parsed = JSON.parse(savedPackages);
+        const filtered = parsed.filter((pkg: PackageData) =>
+          pkg.sender_name || pkg.receiver_name || pkg.package_weight
+        );
+        setPackages(filtered);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const calculateCompleteness = (pkg: PackageData): number => {
-    const fields = [
-      pkg.senderName,
-      pkg.senderPhone,
-      pkg.senderAddress,
-      pkg.receiverName,
-      pkg.receiverPhone,
-      pkg.receiverAddress,
-      pkg.packageWeight,
-    ];
-    const filledFields = fields.filter(f => f && f.trim() !== '').length;
-    return Math.round((filledFields / fields.length) * 100);
+    // Required fields for sender (4 required)
+    const senderRequired = [
+      pkg.sender_name,
+      pkg.sender_phone,
+      pkg.sender_address,
+      pkg.sender_city,
+    ].filter(f => f && f.trim() !== '').length;
+
+    // Required fields for receiver (5 required)
+    const receiverRequired = [
+      pkg.receiver_name,
+      pkg.receiver_phone,
+      pkg.receiver_address,
+      pkg.receiver_province,
+      pkg.receiver_city,
+      pkg.receiver_district,
+    ].filter(f => f && f.trim() !== '').length;
+
+    // Required fields for package (2 required)
+    const packageRequired = [
+      pkg.package_weight,
+      pkg.package_description,
+    ].filter(f => f && f.trim() !== '').length;
+
+    // Total required fields: 4 (sender) + 5 (receiver) + 2 (package) = 11
+    const totalRequired = 11;
+    const totalFilled = senderRequired + receiverRequired + packageRequired;
+
+    return Math.round((totalFilled / totalRequired) * 100);
   };
 
   const handleNewPackage = () => {
@@ -60,12 +86,23 @@ export default function Packages() {
     navigate(`/kirim?edit=${id}`);
   };
 
-  const handleDeletePackage = (id: string) => {
-    setPackages(prev => prev.filter(pkg => pkg.id !== id));
-    setSelectedPackages(prev => prev.filter(selectedId => selectedId !== id));
-    // Update localStorage
-    const updatedPackages = packages.filter(pkg => pkg.id !== id);
-    localStorage.setItem('simpanaja_packages', JSON.stringify(updatedPackages));
+  const handleDeletePackage = async (id: string) => {
+    try {
+      await packageService.deletePackage(id);
+      setPackages(prev => prev.filter(pkg => pkg.id !== id));
+      setSelectedPackages(prev => prev.filter(selectedId => selectedId !== id));
+      toast({
+        title: "Berhasil",
+        description: "Paket berhasil dihapus",
+      });
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      toast({
+        title: "Error",
+        description: "Gagal menghapus paket",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSelectPackage = (id: string, checked: boolean) => {
@@ -89,7 +126,7 @@ export default function Packages() {
     const completeness = calculateCompleteness(pkg);
     if (completeness === 100) {
       // Mock cost calculation based on weight
-      const weight = parseFloat(pkg.packageWeight || '0');
+      const weight = parseFloat(pkg.package_weight || '0');
       return sum + (weight * 10000); // Rp 10,000 per kg
     }
     return sum;
@@ -98,191 +135,102 @@ export default function Packages() {
   const packageCount = packages.length;
   const selectedCount = selectedPackages.length;
 
+  // Convert packages to ShipmentCard format
+  const shipmentCards = packages.map((pkg) => {
+    const completeness = calculateCompleteness(pkg);
+    const isComplete = completeness === 100;
+
+    // Calculate total cost for complete packages
+    let totalCost: number | undefined;
+    if (isComplete && pkg.package_weight) {
+      const weight = parseFloat(pkg.package_weight);
+      // Mock cost calculation: base cost + weight-based cost
+      const baseCost = 15000; // Base shipping cost
+      const weightCost = weight * 10000; // Rp 10,000 per kg
+      totalCost = baseCost + weightCost;
+    }
+
+    return {
+      type: isComplete ? "complete" as const : "incomplete" as const,
+      id: pkg.id,
+      sender: { name: pkg.sender_name || "" },
+      recipient: { name: pkg.receiver_name || "" },
+      address: pkg.receiver_address ? `${pkg.receiver_address}, ${pkg.receiver_city || ''}` : undefined,
+      weight: pkg.package_weight ? `${pkg.package_weight} kg` : undefined,
+      packageCode: pkg.tracking_code || undefined,
+      totalCost,
+      selected: selectedPackages.includes(pkg.id),
+      onSelect: isComplete ? (checked: boolean) => handleSelectPackage(pkg.id, checked) : undefined,
+      onAction: () => handleEditPackage(pkg.id),
+      onDelete: () => handleDeletePackage(pkg.id),
+    };
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Plus className="w-6 h-6 text-white" />
+          </div>
+          <p className="text-gray-600">Memuat data paket...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/')}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Paket Saya</h1>
-              <p className="text-muted-foreground">
-                Kelola pengiriman paket Anda dengan fitur auto-save
-              </p>
-            </div>
-          </div>
-        </div>
+  <div className="min-h-screen bg-background pb-32 relative">
+    <Header />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* New Package Card */}
-          <Card
-            className="p-6 border-2 border-dashed border-muted/50 hover-elevate cursor-pointer flex flex-col items-center justify-center min-h-[280px]"
-            onClick={handleNewPackage}
-            data-testid="card-new-package"
-          >
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Plus className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Buat Paket Baru</h3>
-            <p className="text-sm text-muted-foreground text-center">
-              Mulai kirim paket dengan mengisi form pengiriman
-            </p>
-          </Card>
+    {/* Main Content */}
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {packages.length === 0 && (
+          <ShipmentCard type="empty" onAction={handleNewPackage} />
+        )}
 
-          {/* Existing Packages */}
-          {packages.map((pkg) => {
-            const completeness = calculateCompleteness(pkg);
-            const isComplete = completeness === 100;
-
-            return (
-              <Card
-                key={pkg.id}
-                className="p-6 hover-elevate cursor-pointer relative"
-                onClick={() => handleEditPackage(pkg.id)}
-                data-testid={`card-package-${pkg.id}`}
-              >
-                <Checkbox
-                  className="absolute top-3 left-3"
-                  checked={selectedPackages.includes(pkg.id)}
-                  onCheckedChange={(checked) => handleSelectPackage(pkg.id, checked as boolean)}
-                  disabled={!isComplete}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div className="flex items-start justify-between mb-4 pt-6">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-primary" />
-                  </div>
-                  {isComplete ? (
-                    <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Lengkap
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
-                      <AlertCircle className="w-3 h-3 mr-1" />
-                      {completeness}%
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Pengirim</div>
-                    <div className="font-semibold text-sm">
-                      {pkg.senderName || <span className="text-muted-foreground italic">Belum diisi</span>}
-                    </div>
-                    {pkg.senderPhone && (
-                      <div className="text-xs text-muted-foreground">{pkg.senderPhone}</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Penerima</div>
-                    <div className="font-semibold text-sm">
-                      {pkg.receiverName || <span className="text-muted-foreground italic">Belum diisi</span>}
-                    </div>
-                    {pkg.receiverPhone && (
-                      <div className="text-xs text-muted-foreground">{pkg.receiverPhone}</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Berat Paket</div>
-                    <div className="text-sm">
-                      {pkg.packageWeight ? `${pkg.packageWeight} kg` : <span className="text-muted-foreground italic">Belum diisi</span>}
-                    </div>
-                  </div>
-
-                  {pkg.packageDescription && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Deskripsi</div>
-                      <div className="text-sm line-clamp-2">{pkg.packageDescription}</div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="text-xs text-muted-foreground">
-                    Terakhir disimpan: {new Date(pkg.lastUpdated).toLocaleString('id-ID', { 
-                      day: '2-digit', 
-                      month: 'short', 
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeletePackage(pkg.id);
-                  }}
-                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground mt-4"
-                  data-testid={`button-delete-${pkg.id}`}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="fixed bottom-4 left-4 right-4 bg-card rounded-2xl shadow-xl p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-2">
-              <div className="text-sm">
-                Total ({packageCount} paket)
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={selectedCount === packages.filter(pkg => calculateCompleteness(pkg) === 100).length && selectedCount > 0}
-                  onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                />
-                Pilih Semua
-              </label>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-lg font-bold text-primary">
-                  Rp {totalCost.toLocaleString("id-ID")}
-                </div>
-                <a href="#" className="text-xs text-primary underline">
-                  Lihat Detail Biaya
-                </a>
-              </div>
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white border-0" disabled={selectedCount === 0}>
-                Lanjut
-              </Button>
-            </div>
-          </div>
-        </div>
+        {shipmentCards.map((card) => (
+          <ShipmentCard key={card.id} {...card} />
+        ))}
       </div>
 
-      {/* Tombol + */}
-    <div className="fixed inset-0 pointer-events-none">
-      <div className="absolute bottom-32 right-8 pointer-events-auto">
-        <Button
-          className="h-16 w-16 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:bg-primary/90 z-50"
-          onClick={handleNewPackage}
-        >
-          <Plus className="!w-8 !h-8 text-white" />
-        </Button>
-      </div>
+      {selectedPackages.length > 0 && (
+        <div className="mt-6 p-4 bg-green-100 border border-green-300 rounded-lg">
+          <p className="text-green-800">
+            {selectedPackages.length} paket dipilih
+          </p>
+        </div>
+      )}
+
+      <PackageFooter
+        totalPackages={packageCount}
+        selectedCount={selectedCount}
+        totalCost={totalCost}
+        allSelected={
+          selectedCount ===
+            packages.filter((pkg) => calculateCompleteness(pkg) === 100).length &&
+          selectedCount > 0
+        }
+        onSelectAll={handleSelectAll}
+        onContinue={() => navigate("/pembayaran")}
+      />
+    </main>
+
+    {/* Floating Add Button — keluarin dari main */}
+    <div className="fixed bottom-40 right-6 z-50">
+      <Button
+        onClick={handleNewPackage}
+        size="lg"
+        className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-400/50 transition-transform hover:scale-110"
+      >
+        <Plus className="w-6 h-6" />
+      </Button>
     </div>
+  </div>
+);
 
-    </>
-  );
 }
 
 

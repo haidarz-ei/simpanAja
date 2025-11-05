@@ -633,7 +633,7 @@ export default function Step1DataPaket({
                 id="packageDescription"
                 value={formData.packageDescription}
                 onChange={(e) => handleInputChange('packageDescription', e.target.value)}
-                placeholder="Jelaskan isi paket"
+                placeholder="contoh: makanan, pakaian, dll. "
               />
             </div>
           </div>

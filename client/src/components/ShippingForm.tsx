@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +13,9 @@ import Step2Kurir from "./Step2Kurir";
 import Step3Pembayaran from "./Step3Pembayaran";
 import Step4Success from "./Step4Success";
 import Step5KodePaket from "./Step5KodePaket";
+import { packageService } from "@/lib/packageService";
+import { PackageData } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
 
 // Mock data - TODO: replace with API calls
 const mockCouriers = [
@@ -56,6 +59,7 @@ export default function ShippingForm() {
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "success" | "failed">("pending");
   const [packageCode, setPackageCode] = useState("");
   const [packingOptions, setPackingOptions] = useState<string[]>([]);
+  const [currentPackageId, setCurrentPackageId] = useState<string | null>(null);
 
   // Address management
   const [addressHistory, setAddressHistory] = useState<Address[]>([]);
@@ -94,6 +98,10 @@ export default function ShippingForm() {
     packageDescription: "",
   });
 
+  // Auto-save state
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Load address history from localStorage on mount
   useEffect(() => {
     const savedHistory = localStorage.getItem('addressHistory');
@@ -107,9 +115,122 @@ export default function ShippingForm() {
     localStorage.setItem('addressHistory', JSON.stringify(addressHistory));
   }, [addressHistory]);
 
+  // Load incomplete packages on mount
+  useEffect(() => {
+    const loadIncompletePackage = async () => {
+      try {
+        const incompletePackages = await packageService.getIncompletePackages();
+        if (incompletePackages.length > 0) {
+          const pkg = incompletePackages[0]; // Load the most recent incomplete package
+          setCurrentPackageId(pkg.id);
+          setStep(pkg.step_completed || 1);
+
+          // Restore form data
+          setFormData({
+            senderName: pkg.sender_name || "",
+            senderPhone: pkg.sender_phone || "",
+            senderAddress: pkg.sender_address || "",
+            senderCity: pkg.sender_city || "",
+            senderProvince: pkg.sender_province || "",
+            senderDistrict: pkg.sender_district || "",
+            senderPostalCode: pkg.sender_postal_code || "",
+            receiverName: pkg.receiver_name || "",
+            receiverPhone: pkg.receiver_phone || "",
+            receiverAddress: pkg.receiver_address || "",
+            receiverCity: pkg.receiver_city || "",
+            receiverProvince: pkg.receiver_province || "",
+            receiverDistrict: pkg.receiver_district || "",
+            receiverPostalCode: pkg.receiver_postal_code || "",
+            packageWeight: pkg.package_weight || "",
+            packageLength: pkg.package_length || "",
+            packageWidth: pkg.package_width || "",
+            packageHeight: pkg.package_height || "",
+            packageDescription: pkg.package_description || "",
+          });
+
+          // Restore selections
+          setSelectedCourierName(pkg.courier_name || undefined);
+          setSelectedServiceCode(pkg.courier_service_code || undefined);
+          setSelectedDeliveryMethod(pkg.delivery_method || "");
+          setSelectedPaymentMethod(pkg.payment_method || "");
+          setSelectedOffice(pkg.selected_office || "");
+          setPackingOptions(pkg.packing_options || []);
+
+          toast({
+            title: "Paket ditemukan",
+            description: "Melanjutkan pengisian formulir yang belum selesai.",
+          });
+        }
+      } catch (error) {
+        console.error('Error loading incomplete package:', error);
+        // Don't show error toast for now to avoid confusion
+        // toast({
+        //   title: "Error",
+        //   description: "Gagal memuat data paket yang belum selesai.",
+        //   variant: "destructive",
+        // });
+      }
+    };
+
+    loadIncompletePackage();
+  }, []);
+
+  const performAutoSave = async () => {
+    if (isAutoSaving) return; // Prevent multiple concurrent auto-saves
+
+    setIsAutoSaving(true);
+    try {
+      const packageData = {
+        sender_name: formData.senderName,
+        sender_phone: formData.senderPhone,
+        sender_address: formData.senderAddress,
+        sender_city: formData.senderCity,
+        sender_province: formData.senderProvince,
+        sender_district: formData.senderDistrict,
+        sender_postal_code: formData.senderPostalCode,
+        receiver_name: formData.receiverName,
+        receiver_phone: formData.receiverPhone,
+        receiver_address: formData.receiverAddress,
+        receiver_city: formData.receiverCity,
+        receiver_province: formData.receiverProvince,
+        receiver_district: formData.receiverDistrict,
+        receiver_postal_code: formData.receiverPostalCode,
+        package_weight: formData.packageWeight,
+        package_length: formData.packageLength,
+        package_width: formData.packageWidth,
+        package_height: formData.packageHeight,
+        package_description: formData.packageDescription,
+        courier_name: selectedCourierName,
+        courier_service_code: selectedServiceCode,
+        delivery_method: selectedDeliveryMethod,
+        payment_method: selectedPaymentMethod,
+        selected_office: selectedOffice,
+        packing_options: packingOptions,
+      };
+
+      const savedPackage = await packageService.autoSavePackage(packageData, step);
+      setCurrentPackageId(savedPackage.id);
+      console.log('Auto-saved package:', savedPackage.id);
+    } catch (error) {
+      console.error('Error auto-saving package:', error as Error);
+      // Don't show toast for auto-save errors to avoid annoying the user
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     console.log(`${field} updated:`, value);
+
+    // Trigger auto-save after user stops typing
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 2000); // 2 seconds delay
   };
 
   // Get unique courier names
@@ -138,24 +259,66 @@ export default function ShippingForm() {
     return courierCost + packingCost;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     console.log('Moving to step', step + 1, formData);
-    if (step === 2 && selectedServiceCode) {
-      // Proceed to payment step
-      setStep(3);
-    } else if (step === 3 && selectedDeliveryMethod && selectedPaymentMethod && (selectedPaymentMethod !== 'cash' || selectedOffice) && (selectedDeliveryMethod !== 'self' || selectedOffice)) {
-      // Simulate payment initiation - will redirect to payment page later
-      setPaymentStatus('success');
-      console.log('Payment initiated, proceeding to success step');
-      setStep(4);
-    } else if (step === 4) {
-      // Generate package code after success confirmation
-      const code = `SP${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      setPackageCode(code);
-      console.log('Package code generated:', code);
-      setStep(5);
-    } else {
-      setStep(step + 1);
+
+    try {
+      // Auto-save current package data
+      const packageData = {
+        sender_name: formData.senderName,
+        sender_phone: formData.senderPhone,
+        sender_address: formData.senderAddress,
+        sender_city: formData.senderCity,
+        sender_province: formData.senderProvince,
+        sender_district: formData.senderDistrict,
+        sender_postal_code: formData.senderPostalCode,
+        receiver_name: formData.receiverName,
+        receiver_phone: formData.receiverPhone,
+        receiver_address: formData.receiverAddress,
+        receiver_city: formData.receiverCity,
+        receiver_province: formData.receiverProvince,
+        receiver_district: formData.receiverDistrict,
+        receiver_postal_code: formData.receiverPostalCode,
+        package_weight: formData.packageWeight,
+        package_length: formData.packageLength,
+        package_width: formData.packageWidth,
+        package_height: formData.packageHeight,
+        package_description: formData.packageDescription,
+        courier_name: selectedCourierName,
+        courier_service_code: selectedServiceCode,
+        delivery_method: selectedDeliveryMethod,
+        payment_method: selectedPaymentMethod,
+        selected_office: selectedOffice,
+        packing_options: packingOptions,
+      };
+
+      const savedPackage = await packageService.autoSavePackage(packageData, step + 1);
+      setCurrentPackageId(savedPackage.id);
+
+      if (step === 2 && selectedServiceCode) {
+        // Proceed to payment step
+        setStep(3);
+      } else if (step === 3 && selectedDeliveryMethod && selectedPaymentMethod && (selectedPaymentMethod !== 'cash' || selectedOffice) && (selectedDeliveryMethod !== 'self' || selectedOffice)) {
+        // Simulate payment initiation - will redirect to payment page later
+        setPaymentStatus('success');
+        console.log('Payment initiated, proceeding to success step');
+        setStep(4);
+      } else if (step === 4) {
+        // Generate package code after success confirmation
+        const code = `SP${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        setPackageCode(code);
+        console.log('Package code generated:', code);
+        setStep(5);
+      } else {
+        setStep(step + 1);
+      }
+    } catch (error) {
+      console.error('Error auto-saving package:', error);
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan data paket. Silakan coba lagi.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -163,8 +326,59 @@ export default function ShippingForm() {
     setStep(step - 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     console.log('Form submitted:', { ...formData, courier: selectedServiceCode });
+
+    try {
+      if (currentPackageId) {
+        // Finalize the package in database
+        await packageService.finalizePackage(currentPackageId, packageCode);
+
+        toast({
+          title: "Paket berhasil disimpan",
+          description: "Data paket telah disimpan ke sistem.",
+        });
+      } else {
+        // Fallback: Save to localStorage if no package ID
+        const packageData = {
+          id: `pkg-${Date.now()}`,
+          senderName: formData.senderName,
+          senderPhone: formData.senderPhone,
+          senderAddress: formData.senderAddress,
+          senderCity: formData.senderCity,
+          senderProvince: formData.senderProvince,
+          senderDistrict: formData.senderDistrict,
+          senderPostalCode: formData.senderPostalCode,
+          receiverName: formData.receiverName,
+          receiverPhone: formData.receiverPhone,
+          receiverAddress: formData.receiverAddress,
+          receiverCity: formData.receiverCity,
+          receiverProvince: formData.receiverProvince,
+          receiverDistrict: formData.receiverDistrict,
+          receiverPostalCode: formData.receiverPostalCode,
+          packageWeight: formData.packageWeight,
+          packageDescription: formData.packageDescription,
+          packageLength: formData.packageLength,
+          packageWidth: formData.packageWidth,
+          packageHeight: formData.packageHeight,
+          isComplete: true,
+          paymentStatus: 'paid',
+          trackingCode: packageCode,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        const existingPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]');
+        existingPackages.push(packageData);
+        localStorage.setItem('simpanaja_packages', JSON.stringify(existingPackages));
+      }
+    } catch (error) {
+      console.error('Error finalizing package:', error);
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan data paket. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Edit and delete handlers for sender
