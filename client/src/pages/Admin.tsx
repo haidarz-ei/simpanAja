@@ -5,11 +5,9 @@ import BottomNav from "@/components/BottomNav";
 
 export default function Admin() {
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen bg-background">
       <Header />
-      <main className="min-h-[calc(100vh-4rem)]">
-        <AdminDashboard />
-      </main>
+      <AdminDashboard />
       <Footer />
       <BottomNav />
     </div>

@@ -3,7 +3,9 @@ import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Package, MapPin, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 
 //todo: remove mock functionality
 const mockHistory = [
@@ -28,12 +30,29 @@ const mockHistory = [
 ];
 
 export default function Riwayat() {
+  const [, navigate] = useLocation();
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       <main className="min-h-[calc(100vh-4rem)] py-8">
         <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-3xl font-bold mb-6">Riwayat Pengiriman</h1>
+          <div className="flex items-center gap-4 mb-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/')}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Riwayat Pengiriman</h1>
+              <p className="text-muted-foreground text-sm">
+                Lihat status pengiriman paket Anda
+              </p>
+            </div>
+          </div>
           
           <div className="space-y-4">
             {mockHistory.map((item) => (

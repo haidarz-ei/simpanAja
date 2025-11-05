@@ -57,11 +57,11 @@ export default function HeroSection() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="w-full sm:w-auto px-8"
                 data-testid="button-start-shipping"
-                onClick={() => console.log('Navigate to shipping form')}
+                onClick={() => window.location.href = '/packages'}
               >
                 Mulai Kirim Sekarang
               </Button>
@@ -92,39 +92,7 @@ export default function HeroSection() {
             </div>
           </div>
           
-          <div className="relative lg:block hidden">
-            <div className="relative bg-card border border-card-border rounded-2xl p-8 shadow-xl">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Tracking Number</p>
-                    <p className="font-semibold">SP-2024-001234</p>
-                  </div>
-                  <div className="px-3 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full">
-                    Dikirim
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  {[
-                    { status: "Paket Diterima", time: "10:30", active: false },
-                    { status: "Dalam Perjalanan", time: "14:20", active: true },
-                    { status: "Tiba di Kota Tujuan", time: "-", active: false },
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${item.active ? 'bg-primary' : 'bg-muted'}`} />
-                      <div className="flex-1">
-                        <p className={`text-sm ${item.active ? 'font-semibold' : 'text-muted-foreground'}`}>
-                          {item.status}
-                        </p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{item.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

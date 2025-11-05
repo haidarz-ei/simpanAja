@@ -1,0 +1,6 @@
+- [x] Update onClick for "Simpan Alamat" in sender modal to auto-select the new address
+- [x] Update onClick for "Simpan Alamat" in receiver modal to auto-select the new address
+- [x] Update onClick for "Update Alamat" in sender modal to update selected address if it's the current one
+- [x] Update onClick for "Update Alamat" in receiver modal to update selected address if it's the current one
+- [x] Add edit and delete buttons to the displayed selected sender address
+- [x] Add edit and delete buttons to the displayed selected receiver address

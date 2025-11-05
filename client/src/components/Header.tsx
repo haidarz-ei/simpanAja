@@ -18,7 +18,7 @@ export default function Header() {
             <Link href="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-home">
               Beranda
             </Link>
-            <Link href="/kirim" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-kirim">
+            <Link href="/packages" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-kirim">
               Kirim Paket
             </Link>
             <Link href="/riwayat" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-riwayat">

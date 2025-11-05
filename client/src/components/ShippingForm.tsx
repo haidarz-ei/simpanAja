@@ -1,37 +1,91 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Package, User, MapPin, Truck } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { User, MapPin, Package, Truck, CreditCard, CheckCircle, History, Edit, X, Plus, Search, Wallet, Building2 } from "lucide-react";
+import Step1DataPaket from "./Step1DataPaket";
+import Step2Kurir from "./Step2Kurir";
+import Step3Pembayaran from "./Step3Pembayaran";
+import Step4Success from "./Step4Success";
+import Step5KodePaket from "./Step5KodePaket";
 
-//todo: remove mock functionality
+// Mock data - TODO: replace with API calls
 const mockCouriers = [
-  { code: "jne", service: "REG", price: 15000, estimatedDays: "2-3 hari", logo: "JNE" },
-  { code: "jnt", service: "EZ", price: 12000, estimatedDays: "3-4 hari", logo: "J&T" },
-  { code: "sicepat", service: "REG", price: 14000, estimatedDays: "2-3 hari", logo: "SiCepat" },
+  { courier: "JNE", service: "REG", price: 15000, estimatedDays: "2-3 hari", code: "jne-reg" },
+  { courier: "JNE", service: "YES", price: 20000, estimatedDays: "1-2 hari", code: "jne-yes" },
+  { courier: "J&T", service: "EZ", price: 12000, estimatedDays: "3-4 hari", code: "jnt-ez" },
+  { courier: "J&T", service: "REG", price: 14000, estimatedDays: "2-3 hari", code: "jnt-reg" },
+  { courier: "SiCepat", service: "REG", price: 14000, estimatedDays: "2-3 hari", code: "sicepat-reg" },
+  { courier: "SiCepat", service: "BEST", price: 18000, estimatedDays: "1-2 hari", code: "sicepat-best" },
+  { courier: "TIKI", service: "REG", price: 16000, estimatedDays: "2-4 hari", code: "tiki-reg" },
+  { courier: "TIKI", service: "ONS", price: 22000, estimatedDays: "1 hari", code: "tiki-ons" },
+  { courier: "POS Indonesia", service: "Paket Kilat Khusus", price: 18000, estimatedDays: "3-5 hari", code: "pos-kilat" },
+  { courier: "Wahana", service: "REG", price: 13000, estimatedDays: "2-3 hari", code: "wahana-reg" },
 ];
 
+const mockOffices = [
+  { id: "office-1", name: "Kantor Ekspedisi Jakarta Pusat", address: "Jl. Sudirman No. 123, Jakarta Pusat" },
+  { id: "office-2", name: "Kantor Ekspedisi Jakarta Selatan", address: "Jl. Thamrin No. 456, Jakarta Selatan" },
+  { id: "office-3", name: "Kantor Ekspedisi Jakarta Utara", address: "Jl. Gatot Subroto No. 789, Jakarta Utara" },
+];
+
+type Address = {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  province: string;
+  district: string;
+  postalCode: string;
+  type: "sender" | "receiver";
+};
+
 export default function ShippingForm() {
-  const [step, setStep] = useState(1);
-  const [selectedCourier, setSelectedCourier] = useState("");
+  const [step, setStep] = useState<number>(1);
+  const [selectedCourierName, setSelectedCourierName] = useState<string | undefined>(undefined);
+  const [selectedServiceCode, setSelectedServiceCode] = useState<string | undefined>(undefined);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState("");
+  const [selectedOffice, setSelectedOffice] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "success" | "failed">("pending");
   const [packageCode, setPackageCode] = useState("");
   const [packingOptions, setPackingOptions] = useState<string[]>([]);
+
+  // Address management
+  const [addressHistory, setAddressHistory] = useState<Address[]>([]);
+  const [selectedSenderAddress, setSelectedSenderAddress] = useState<Address | null>(null);
+  const [selectedReceiverAddress, setSelectedReceiverAddress] = useState<Address | null>(null);
+  const [showSenderModal, setShowSenderModal] = useState(false);
+  const [showReceiverModal, setShowReceiverModal] = useState(false);
+  const [showSenderHistory, setShowSenderHistory] = useState(false);
+  const [showReceiverHistory, setShowReceiverHistory] = useState(false);
+  const [showSenderInputModal, setShowSenderInputModal] = useState(false);
+  const [showReceiverInputModal, setShowReceiverInputModal] = useState(false);
+  const [searchSenderHistory, setSearchSenderHistory] = useState("");
+  const [searchReceiverHistory, setSearchReceiverHistory] = useState("");
+  const [editingSenderId, setEditingSenderId] = useState<string | null>(null);
+  const [editingReceiverId, setEditingReceiverId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     senderName: "",
     senderPhone: "",
     senderAddress: "",
     senderCity: "",
     senderProvince: "",
+    senderDistrict: "",
     senderPostalCode: "",
     receiverName: "",
     receiverPhone: "",
     receiverAddress: "",
     receiverCity: "",
     receiverProvince: "",
+    receiverDistrict: "",
     receiverPostalCode: "",
     packageWeight: "",
     packageLength: "",
@@ -40,20 +94,69 @@ export default function ShippingForm() {
     packageDescription: "",
   });
 
+  // Load address history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('addressHistory');
+    if (savedHistory) {
+      setAddressHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  // Save address history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('addressHistory', JSON.stringify(addressHistory));
+  }, [addressHistory]);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     console.log(`${field} updated:`, value);
   };
 
+  // Get unique courier names
+  const uniqueCouriers = Array.from(new Set(mockCouriers.map(c => c.courier)));
+
+  // Get services for selected courier
+  const servicesForSelectedCourier = selectedCourierName
+    ? mockCouriers.filter(c => c.courier === selectedCourierName)
+    : [];
+
+  // Calculate total cost
+  const calculateTotalCost = () => {
+    const selectedCourierData = mockCouriers.find(c => c.code === selectedServiceCode);
+    const courierCost = selectedCourierData ? selectedCourierData.price : 0;
+
+    const packingCost = packingOptions.reduce((total, option) => {
+      switch (option) {
+        case 'bubble': return total + 5000;
+        case 'cardboard': return total + 8000;
+        case 'wooden': return total + 25000;
+        case 'insurance': return total + 10000;
+        default: return total;
+      }
+    }, 0);
+
+    return courierCost + packingCost;
+  };
+
   const handleNext = () => {
     console.log('Moving to step', step + 1, formData);
-    if (step === 4 && selectedCourier) {
-      // Generate package code
+    if (step === 2 && selectedServiceCode) {
+      // Proceed to payment step
+      setStep(3);
+    } else if (step === 3 && selectedDeliveryMethod && selectedPaymentMethod && (selectedPaymentMethod !== 'cash' || selectedOffice) && (selectedDeliveryMethod !== 'self' || selectedOffice)) {
+      // Simulate payment initiation - will redirect to payment page later
+      setPaymentStatus('success');
+      console.log('Payment initiated, proceeding to success step');
+      setStep(4);
+    } else if (step === 4) {
+      // Generate package code after success confirmation
       const code = `SP${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       setPackageCode(code);
-      console.log('Generated package code:', code);
+      console.log('Package code generated:', code);
+      setStep(5);
+    } else {
+      setStep(step + 1);
     }
-    setStep(step + 1);
   };
 
   const handleBack = () => {
@@ -61,192 +164,195 @@ export default function ShippingForm() {
   };
 
   const handleSubmit = () => {
-    console.log('Form submitted:', { ...formData, courier: selectedCourier });
+    console.log('Form submitted:', { ...formData, courier: selectedServiceCode });
+  };
+
+  // Edit and delete handlers for sender
+  const handleEditSender = (address: Address) => {
+    setFormData({
+      ...formData,
+      senderName: address.name,
+      senderPhone: address.phone,
+      senderAddress: address.address,
+      senderCity: address.city,
+      senderProvince: address.province,
+      senderPostalCode: address.postalCode,
+    });
+    setEditingSenderId(address.id);
+    setShowSenderInputModal(true);
+  };
+
+  const handleDeleteSender = (id: string) => {
+    setAddressHistory(prev => prev.filter(addr => addr.id !== id));
+    if (selectedSenderAddress && selectedSenderAddress.id === id) {
+      setSelectedSenderAddress(null);
+    }
+  };
+
+  const handleDeselectSender = () => {
+    setSelectedSenderAddress(null);
+  };
+
+  // Edit and delete handlers for receiver
+  const handleEditReceiver = (address: Address) => {
+    setFormData({
+      ...formData,
+      receiverName: address.name,
+      receiverPhone: address.phone,
+      receiverAddress: address.address,
+      receiverCity: address.city,
+      receiverProvince: address.province,
+      receiverPostalCode: address.postalCode,
+    });
+    setEditingReceiverId(address.id);
+    setShowReceiverInputModal(true);
+  };
+
+  const handleDeleteReceiver = (id: string) => {
+    setAddressHistory(prev => prev.filter(addr => addr.id !== id));
+    if (selectedReceiverAddress && selectedReceiverAddress.id === id) {
+      setSelectedReceiverAddress(null);
+    }
+  };
+
+  const handleDeselectReceiver = () => {
+    setSelectedReceiverAddress(null);
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          {[1, 2, 3, 4, 5].map((s) => (
-            <div key={s} className="flex items-center flex-1">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+        <div className="flex justify-between">
+          {[1, 2, 3, 4, 5].map((s, index) => (
+            <div key={s} className="flex flex-col items-center flex-1">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold mb-2 ${
                 s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 {s}
               </div>
+              <span className="text-xs text-muted-foreground text-center">
+                {['Data & Paket', 'Kurir', 'Pembayaran', 'Sukses', 'Kode'][index]}
+              </span>
               {s < 5 && (
-                <div className={`flex-1 h-1 mx-2 ${s < step ? 'bg-primary' : 'bg-muted'}`} />
+                <div className={`flex-1 h-1 ${s < step ? 'bg-primary' : 'bg-muted'}`} style={{ width: 'calc(100% - 2.5rem)', marginLeft: '1.25rem', marginTop: '0.5rem' }}></div>
               )}
             </div>
           ))}
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Pengirim</span>
-          <span>Penerima</span>
-          <span>Paket</span>
-          <span>Kurir</span>
-          <span>Kode</span>
         </div>
       </div>
 
       <Card className="p-6">
         {step === 1 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-4">
-              <User className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Data Pengirim</h2>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="sender-name">Nama Lengkap</Label>
-                <Input
-                  id="sender-name"
-                  data-testid="input-sender-name"
-                  value={formData.senderName}
-                  onChange={(e) => handleInputChange('senderName', e.target.value)}
-                  placeholder="Masukkan nama lengkap"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="sender-phone">Nomor Telepon</Label>
-                <Input
-                  id="sender-phone"
-                  data-testid="input-sender-phone"
-                  value={formData.senderPhone}
-                  onChange={(e) => handleInputChange('senderPhone', e.target.value)}
-                  placeholder="08xx xxxx xxxx"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="sender-address">Alamat Lengkap</Label>
-                <Textarea
-                  id="sender-address"
-                  data-testid="input-sender-address"
-                  value={formData.senderAddress}
-                  onChange={(e) => handleInputChange('senderAddress', e.target.value)}
-                  placeholder="Jalan, nomor rumah, RT/RW"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sender-province">Provinsi</Label>
-                  <Input
-                    id="sender-province"
-                    data-testid="input-sender-province"
-                    value={formData.senderProvince}
-                    onChange={(e) => handleInputChange('senderProvince', e.target.value)}
-                    placeholder="Nama provinsi"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="sender-city">Kota/Kabupaten</Label>
-                  <Input
-                    id="sender-city"
-                    data-testid="input-sender-city"
-                    value={formData.senderCity}
-                    onChange={(e) => handleInputChange('senderCity', e.target.value)}
-                    placeholder="Nama kota"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="sender-postal">Kode Pos</Label>
-                <Input
-                  id="sender-postal"
-                  data-testid="input-sender-postal"
-                  value={formData.senderPostalCode}
-                  onChange={(e) => handleInputChange('senderPostalCode', e.target.value)}
-                  placeholder="12345"
-                />
-              </div>
-            </div>
-          </div>
+          <Step1DataPaket
+            formData={formData}
+            setFormData={setFormData}
+            handleInputChange={handleInputChange}
+            addressHistory={addressHistory}
+            setAddressHistory={setAddressHistory}
+            selectedSenderAddress={selectedSenderAddress}
+            setSelectedSenderAddress={setSelectedSenderAddress}
+            selectedReceiverAddress={selectedReceiverAddress}
+            setSelectedReceiverAddress={setSelectedReceiverAddress}
+            packingOptions={packingOptions}
+            setPackingOptions={setPackingOptions}
+            showSenderHistory={showSenderHistory}
+            setShowSenderHistory={setShowSenderHistory}
+            showReceiverHistory={showReceiverHistory}
+            setShowReceiverHistory={setShowReceiverHistory}
+            showSenderInputModal={showSenderInputModal}
+            setShowSenderInputModal={setShowSenderInputModal}
+            showReceiverInputModal={showReceiverInputModal}
+            setShowReceiverInputModal={setShowReceiverInputModal}
+            searchSenderHistory={searchSenderHistory}
+            setSearchSenderHistory={setSearchSenderHistory}
+            searchReceiverHistory={searchReceiverHistory}
+            setSearchReceiverHistory={setSearchReceiverHistory}
+            editingSenderId={editingSenderId}
+            setEditingSenderId={setEditingSenderId}
+            editingReceiverId={editingReceiverId}
+            setEditingReceiverId={setEditingReceiverId}
+            handleEditSender={handleEditSender}
+            handleDeleteSender={handleDeleteSender}
+            handleEditReceiver={handleEditReceiver}
+            handleDeleteReceiver={handleDeleteReceiver}
+            calculateTotalCost={calculateTotalCost}
+          />
         )}
 
         {step === 2 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
-              <MapPin className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Data Penerima</h2>
+              <Truck className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">Kurir</h2>
             </div>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-6">
+              {/* Pilih Kurir */}
               <div>
-                <Label htmlFor="receiver-name">Nama Lengkap</Label>
-                <Input
-                  id="receiver-name"
-                  data-testid="input-receiver-name"
-                  value={formData.receiverName}
-                  onChange={(e) => handleInputChange('receiverName', e.target.value)}
-                  placeholder="Masukkan nama lengkap"
-                />
+                <h3 className="font-semibold mb-4">Pilih Kurir</h3>
+                <RadioGroup value={selectedCourierName} onValueChange={(val) => {
+                  setSelectedCourierName(val);
+                  setSelectedServiceCode(undefined); // reset service saat ganti kurir
+                }}>
+                  <div className="space-y-4">
+                    {uniqueCouriers.map((courier) => (
+                      <label
+                        key={courier}
+                        className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                          selectedCourierName === courier ? 'border-primary bg-primary/5' : 'border-card-border'
+                        }`}
+                      >
+                        <RadioGroupItem value={courier} id={courier} />
+                        <div className="font-semibold">{courier}</div>
+                      </label>
+                    ))}
+                  </div>
+                </RadioGroup>
               </div>
-              
-              <div>
-                <Label htmlFor="receiver-phone">Nomor Telepon</Label>
-                <Input
-                  id="receiver-phone"
-                  data-testid="input-receiver-phone"
-                  value={formData.receiverPhone}
-                  onChange={(e) => handleInputChange('receiverPhone', e.target.value)}
-                  placeholder="08xx xxxx xxxx"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="receiver-address">Alamat Lengkap</Label>
-                <Textarea
-                  id="receiver-address"
-                  data-testid="input-receiver-address"
-                  value={formData.receiverAddress}
-                  onChange={(e) => handleInputChange('receiverAddress', e.target.value)}
-                  placeholder="Jalan, nomor rumah, RT/RW"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Pilih Layanan */}
+              {selectedCourierName && (
                 <div>
-                  <Label htmlFor="receiver-province">Provinsi</Label>
-                  <Input
-                    id="receiver-province"
-                    data-testid="input-receiver-province"
-                    value={formData.receiverProvince}
-                    onChange={(e) => handleInputChange('receiverProvince', e.target.value)}
-                    placeholder="Nama provinsi"
-                  />
+                  <h3 className="font-semibold mb-4">Pilih Layanan</h3>
+                  <RadioGroup value={selectedServiceCode} onValueChange={setSelectedServiceCode}>
+                    <div className="space-y-4">
+                      {servicesForSelectedCourier.map((service) => (
+                        <label
+                          key={service.code}
+                          className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                            selectedServiceCode === service.code ? 'border-primary bg-primary/5' : 'border-card-border'
+                          }`}
+                        >
+                          <RadioGroupItem value={service.code} id={service.code} />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="font-semibold">{service.courier} - {service.service}</div>
+                              <div className="text-xl font-bold text-primary">
+                                Rp {service.price.toLocaleString('id-ID')}
+                              </div>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Estimasi: {service.estimatedDays}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </RadioGroup>
                 </div>
-                
-                <div>
-                  <Label htmlFor="receiver-city">Kota/Kabupaten</Label>
-                  <Input
-                    id="receiver-city"
-                    data-testid="input-receiver-city"
-                    value={formData.receiverCity}
-                    onChange={(e) => handleInputChange('receiverCity', e.target.value)}
-                    placeholder="Nama kota"
-                  />
+              )}
+
+                <div className="mt-6 bg-muted/50 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total Biaya:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      Rp {calculateTotalCost().toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <a href="#" className="text-sm text-primary hover:underline">Detail Harga</a>
+                  </div>
                 </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="receiver-postal">Kode Pos</Label>
-                <Input
-                  id="receiver-postal"
-                  data-testid="input-receiver-postal"
-                  value={formData.receiverPostalCode}
-                  onChange={(e) => handleInputChange('receiverPostalCode', e.target.value)}
-                  placeholder="12345"
-                />
-              </div>
             </div>
           </div>
         )}
@@ -254,73 +360,159 @@ export default function ShippingForm() {
         {step === 3 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
-              <Package className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Detail Paket</h2>
+              <CreditCard className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">Pembayaran</h2>
             </div>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-6">
               <div>
-                <Label htmlFor="package-weight">Berat Paket (kg)</Label>
-                <Input
-                  id="package-weight"
-                  data-testid="input-package-weight"
-                  type="number"
-                  step="0.1"
-                  value={formData.packageWeight}
-                  onChange={(e) => handleInputChange('packageWeight', e.target.value)}
-                  placeholder="1.5"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Contoh: 1.5 untuk 1.5 kg</p>
+                <h3 className="font-semibold mb-4">Pilih Metode Pengiriman Paket Anda</h3>
+                <RadioGroup value={selectedDeliveryMethod} onValueChange={setSelectedDeliveryMethod}>
+                  <div className="space-y-3">
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                      selectedDeliveryMethod === 'locker' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem value="locker" id="locker" />
+                      <div className="flex items-center gap-3 flex-1">
+                        <Package className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Simpan di Locker</div>
+                          <div className="text-sm text-muted-foreground">Masukkan paket ke locker yang tersedia.</div>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                      selectedDeliveryMethod === 'admin' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem value="admin" id="admin" />
+                      <div className="flex items-center gap-3 flex-1">
+                        <Building2 className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Serahkan ke Kurir</div>
+                          <div className="text-sm text-muted-foreground">kurir akan menjemput paket di alamat anda.</div>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                      selectedDeliveryMethod === 'self' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem value="self" id="self" />
+                      <div className="flex items-center gap-3 flex-1">
+                        <Truck className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Antar Sendiri</div>
+                          <div className="text-sm text-muted-foreground">Antar paket ke kantor yang anda pilih.</div>
+                        </div>
+                      </div>
+                    </label>
+
+                    {selectedDeliveryMethod === 'self' && (
+                      <div className="mt-4 ml-6">
+                        <h4 className="font-semibold mb-2 text-sm">Pilih Kantor Ekspedisi Terdekat</h4>
+                        <RadioGroup value={selectedOffice} onValueChange={setSelectedOffice}>
+                          <div className="space-y-2">
+                            {mockOffices.map((office) => (
+                              <label
+                                key={office.id}
+                                className={`flex items-center gap-4 p-3 border-2 rounded-lg cursor-pointer ${
+                                  selectedOffice === office.id ? 'border-primary bg-primary/5' : 'border-card-border'
+                                }`}
+                              >
+                                <RadioGroupItem value={office.id} id={office.id} />
+                                <div className="flex-1">
+                                  <div className="font-medium">{office.name}</div>
+                                  <div className="text-sm text-muted-foreground">{office.address}</div>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
+                  </div>
+                </RadioGroup>
               </div>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="package-length">Panjang (cm)</Label>
-                  <Input
-                    id="package-length"
-                    data-testid="input-package-length"
-                    type="number"
-                    value={formData.packageLength}
-                    onChange={(e) => handleInputChange('packageLength', e.target.value)}
-                    placeholder="20"
-                  />
+
+              <div className="pt-6 border-t border-border">
+                <h3 className="font-semibold mb-4">Pilih Metode Pembayaran</h3>
+                <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                  <div className="space-y-3">
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                      selectedPaymentMethod === 'ewallet' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem value="ewallet" id="ewallet" />
+                      <div className="flex items-center gap-3 flex-1">
+                        <Wallet className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">E-Wallet</div>
+                          <div className="text-sm text-muted-foreground">GoPay, OVO, Dana, LinkAja</div>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                      selectedPaymentMethod === 'transfer' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem value="transfer" id="transfer" />
+                      <div className="flex items-center gap-3 flex-1">
+                        <CreditCard className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Transfer Bank</div>
+                          <div className="text-sm text-muted-foreground">BCA, BNI, Mandiri, BRI</div>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg ${
+                      selectedDeliveryMethod === 'locker' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover-elevate'
+                    } ${
+                      selectedPaymentMethod === 'cash' ? 'border-primary bg-primary/5' : 'border-card-border'
+                    }`}>
+                      <RadioGroupItem
+                        value="cash"
+                        id="cash"
+                        disabled={selectedDeliveryMethod === 'locker'}
+                      />
+                      <div className="flex items-center gap-3 flex-1">
+                        <Building2 className="w-5 h-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Bayar Tunai</div>
+                          <div className="text-sm text-muted-foreground">Bayar tunai langsung saat menyerahkan paket ke kantor atau kurir</div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </RadioGroup>
+
+                {selectedDeliveryMethod === 'admin' && selectedPaymentMethod === 'cash' && (
+                  <div className="mt-4 ml-6">
+                    <p className="text-sm text-muted-foreground">Bayar tunai ketika kurir sampai.</p>
+                  </div>
+                )}
+
+                {selectedDeliveryMethod === 'self' && selectedPaymentMethod === 'cash' && selectedOffice && (
+                  <div className="mt-4 ml-6">
+                    <h4 className="font-semibold mb-2 text-sm">Kantor Ekspedisi Terpilih (Bayar Tunai Di)</h4>
+                    <div className="p-3 border-2 rounded-lg border-primary bg-primary/5">
+                      <div className="font-medium">{mockOffices.find(o => o.id === selectedOffice)?.name}</div>
+                      <div className="text-sm text-muted-foreground">{mockOffices.find(o => o.id === selectedOffice)?.address}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 bg-muted/50 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total Biaya:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      Rp {calculateTotalCost().toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <a href="#" className="text-sm text-primary hover:underline">Detail Harga</a>
+                  </div>
                 </div>
-                
-                <div>
-                  <Label htmlFor="package-width">Lebar (cm)</Label>
-                  <Input
-                    id="package-width"
-                    data-testid="input-package-width"
-                    type="number"
-                    value={formData.packageWidth}
-                    onChange={(e) => handleInputChange('packageWidth', e.target.value)}
-                    placeholder="15"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="package-height">Tinggi (cm)</Label>
-                  <Input
-                    id="package-height"
-                    data-testid="input-package-height"
-                    type="number"
-                    value={formData.packageHeight}
-                    onChange={(e) => handleInputChange('packageHeight', e.target.value)}
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="package-description">Deskripsi Paket (opsional)</Label>
-                <Textarea
-                  id="package-description"
-                  data-testid="input-package-description"
-                  value={formData.packageDescription}
-                  onChange={(e) => handleInputChange('packageDescription', e.target.value)}
-                  placeholder="Contoh: Pakaian, Buku, Elektronik"
-                  rows={2}
-                />
               </div>
             </div>
           </div>
@@ -328,133 +520,15 @@ export default function ShippingForm() {
 
         {step === 4 && (
           <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Truck className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Pilih Kurir & Layanan</h2>
-            </div>
-            
-            <RadioGroup value={selectedCourier} onValueChange={setSelectedCourier}>
-              <div className="space-y-4">
-                {mockCouriers.map((courier) => (
-                  <label
-                    key={courier.code}
-                    className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedCourier === courier.code ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}
-                    data-testid={`courier-option-${courier.code}`}
-                  >
-                    <RadioGroupItem value={courier.code} id={courier.code} />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="font-semibold">{courier.logo} - {courier.service}</div>
-                        <div className="text-xl font-bold text-primary">
-                          Rp {courier.price.toLocaleString('id-ID')}
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Estimasi: {courier.estimatedDays}
-                      </div>
-                    </div>
-                  </label>
-                ))}
+            <div className="text-center py-8">
+              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
-            </RadioGroup>
 
-            <div className="pt-6 border-t border-border">
-              <h3 className="font-semibold mb-4">Opsi Packing Tambahan</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Pilih layanan packing tambahan untuk melindungi paket Anda
+              <h2 className="text-2xl font-bold mb-2">Pembayaran Berhasil!</h2>
+              <p className="text-muted-foreground mb-6">
+                Pembayaran Anda telah berhasil diproses. Klik tombol di bawah untuk mendapatkan kode paket.
               </p>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="packing-bubble"
-                      checked={packingOptions.includes('bubble')}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPackingOptions([...packingOptions, 'bubble']);
-                        } else {
-                          setPackingOptions(packingOptions.filter(p => p !== 'bubble'));
-                        }
-                      }}
-                      data-testid="checkbox-packing-bubble"
-                    />
-                    <label htmlFor="packing-bubble" className="cursor-pointer">
-                      <div className="font-medium">Bubble Wrap</div>
-                      <div className="text-sm text-muted-foreground">Perlindungan standar untuk barang pecah belah</div>
-                    </label>
-                  </div>
-                  <div className="font-semibold">+ Rp 5.000</div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="packing-cardboard"
-                      checked={packingOptions.includes('cardboard')}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPackingOptions([...packingOptions, 'cardboard']);
-                        } else {
-                          setPackingOptions(packingOptions.filter(p => p !== 'cardboard'));
-                        }
-                      }}
-                      data-testid="checkbox-packing-cardboard"
-                    />
-                    <label htmlFor="packing-cardboard" className="cursor-pointer">
-                      <div className="font-medium">Kardus Tambahan</div>
-                      <div className="text-sm text-muted-foreground">Double kardus untuk perlindungan ekstra</div>
-                    </label>
-                  </div>
-                  <div className="font-semibold">+ Rp 8.000</div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="packing-wooden"
-                      checked={packingOptions.includes('wooden')}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPackingOptions([...packingOptions, 'wooden']);
-                        } else {
-                          setPackingOptions(packingOptions.filter(p => p !== 'wooden'));
-                        }
-                      }}
-                      data-testid="checkbox-packing-wooden"
-                    />
-                    <label htmlFor="packing-wooden" className="cursor-pointer">
-                      <div className="font-medium">Packing Kayu</div>
-                      <div className="text-sm text-muted-foreground">Untuk barang berat atau sangat berharga</div>
-                    </label>
-                  </div>
-                  <div className="font-semibold">+ Rp 25.000</div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="packing-insurance"
-                      checked={packingOptions.includes('insurance')}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPackingOptions([...packingOptions, 'insurance']);
-                        } else {
-                          setPackingOptions(packingOptions.filter(p => p !== 'insurance'));
-                        }
-                      }}
-                      data-testid="checkbox-packing-insurance"
-                    />
-                    <label htmlFor="packing-insurance" className="cursor-pointer">
-                      <div className="font-medium">Asuransi Paket</div>
-                      <div className="text-sm text-muted-foreground">Ganti rugi hingga Rp 2.000.000 jika terjadi kerusakan</div>
-                    </label>
-                  </div>
-                  <div className="font-semibold">+ Rp 10.000</div>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -465,41 +539,37 @@ export default function ShippingForm() {
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                 <Package className="w-10 h-10 text-primary" />
               </div>
-              
+
               <h2 className="text-2xl font-bold mb-2">Kode Paket Anda</h2>
               <p className="text-muted-foreground mb-6">
                 Simpan dan terapkan kode ini pada paket pengirim
               </p>
-              
+
               <div className="bg-card border-2 border-primary rounded-xl p-8 mb-6">
                 <div className="text-sm text-muted-foreground mb-2">Kode Paket</div>
                 <div className="text-5xl font-bold text-primary tracking-wider font-mono" data-testid="text-package-code">
                   {packageCode}
                 </div>
               </div>
-              
+
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
                 <h3 className="font-semibold mb-3">Langkah Selanjutnya:</h3>
                 <ol className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex gap-2">
                     <span className="font-semibold">1.</span>
-                    <span>Lakukan pembayaran sesuai metode yang dipilih</span>
+                    <span>Tunjukkan / tempelkan kode <strong className="text-foreground">{packageCode}</strong> di paket anda saat drop-off.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-semibold">2.</span>
-                    <span>Tunjukkan kode <strong className="text-foreground">{packageCode}</strong> ke admin saat drop-off</span>
+                    <span>Serahkan paket Anda ke admin/kurir yang tersedia.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-semibold">3.</span>
-                    <span>Serahkan paket Anda di locker yang tersedia</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-semibold">4.</span>
-                    <span>Admin akan memproses dan meneruskan ke kurir pilihan Anda</span>
+                    <span>Admin akan memproses dan meneruskan paket ke kurir pilihan Anda.</span>
                   </li>
                 </ol>
               </div>
-              
+
               <div className="text-sm text-muted-foreground">
                 Nomor resi dari kurir akan dikirimkan setelah paket diproses oleh admin
               </div>
@@ -518,31 +588,14 @@ export default function ShippingForm() {
               Kembali
             </Button>
           )}
-          
-          {step < 4 ? (
+
+          {step < 5 && (
             <Button
               onClick={handleNext}
               className="flex-1"
-              data-testid="button-next"
+              data-testid={step === 4 ? "button-generate-code" : "button-next"}
             >
-              Lanjutkan
-            </Button>
-          ) : step === 4 ? (
-            <Button
-              onClick={handleNext}
-              className="flex-1"
-              data-testid="button-generate-code"
-              disabled={!selectedCourier}
-            >
-              Generate Kode Paket
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              className="flex-1"
-              data-testid="button-proceed-payment"
-            >
-              Lanjut ke Pembayaran
+              {step === 3 ? 'Bayar Sekarang' : step === 4 ? 'Generate Kode Paket' : 'Lanjutkan'}
             </Button>
           )}
         </div>
