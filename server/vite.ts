@@ -27,22 +27,29 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
+    configFile: path.resolve(import.meta.dirname, "..", "vite.config.ts"),
     server: serverOptions,
     appType: "custom",
+    customLogger: viteLogger,
   });
 
   app.use(vite.middlewares);
+
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+
+    if (
+      url.endsWith(".js") ||
+      url.endsWith(".mjs") ||
+      url.startsWith("/api/") ||
+      url.startsWith("/@vite/") ||
+      url.startsWith("/@fs/") ||
+      url.startsWith("/node_modules/") ||
+      url.startsWith("/src/") ||
+      url.startsWith("/static/")
+    ) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(

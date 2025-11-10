@@ -316,8 +316,8 @@ export default function AdminDashboard() {
                   <span className="text-xl">👤</span>
                 </div>
                 <div>
-                  <p className="text-sm">Admin JNE</p>
-                  <p className="text-xs text-blue-200">Sudirman</p>
+                  <p className="text-sm">Admin</p>
+                  <p className="text-xs text-blue-200">Haidar</p>
                 </div>
               </div>
             </Card>

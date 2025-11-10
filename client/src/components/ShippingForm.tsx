@@ -1,20 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { User, MapPin, Package, Truck, CreditCard, CheckCircle, History, Edit, X, Plus, Search, Wallet, Building2 } from "lucide-react";
+import { Package, Truck, CheckCircle } from "lucide-react";
 import Step1DataPaket from "./Step1DataPaket";
 import Step2Kurir from "./Step2Kurir";
-import Step3Pembayaran from "./Step3Pembayaran";
-import Step4Success from "./Step4Success";
-import Step5KodePaket from "./Step5KodePaket";
+import Step3KodePaket from "./Step3KodePaket";
 import { packageService } from "@/lib/packageService";
-import { PackageData } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 
 // Mock data - TODO: replace with API calls
@@ -50,13 +43,10 @@ type Address = {
 };
 
 export default function ShippingForm() {
+  const [, navigate] = useLocation();
   const [step, setStep] = useState<number>(1);
   const [selectedCourierName, setSelectedCourierName] = useState<string | undefined>(undefined);
   const [selectedServiceCode, setSelectedServiceCode] = useState<string | undefined>(undefined);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
-  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState("");
-  const [selectedOffice, setSelectedOffice] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<"pending" | "success" | "failed">("pending");
   const [packageCode, setPackageCode] = useState("");
   const [packingOptions, setPackingOptions] = useState<string[]>([]);
   const [currentPackageId, setCurrentPackageId] = useState<string | null>(null);
@@ -115,64 +105,66 @@ export default function ShippingForm() {
     localStorage.setItem('addressHistory', JSON.stringify(addressHistory));
   }, [addressHistory]);
 
-  // Load incomplete packages on mount
+  // Load incomplete packages on mount (only if not creating new package)
   useEffect(() => {
-    const loadIncompletePackage = async () => {
-      try {
-        const incompletePackages = await packageService.getIncompletePackages();
-        if (incompletePackages.length > 0) {
-          const pkg = incompletePackages[0]; // Load the most recent incomplete package
-          setCurrentPackageId(pkg.id);
-          setStep(pkg.step_completed || 1);
+    const urlParams = new URLSearchParams(window.location.search);
+    const isNewPackage = urlParams.get('new') === 'true';
 
-          // Restore form data
-          setFormData({
-            senderName: pkg.sender_name || "",
-            senderPhone: pkg.sender_phone || "",
-            senderAddress: pkg.sender_address || "",
-            senderCity: pkg.sender_city || "",
-            senderProvince: pkg.sender_province || "",
-            senderDistrict: pkg.sender_district || "",
-            senderPostalCode: pkg.sender_postal_code || "",
-            receiverName: pkg.receiver_name || "",
-            receiverPhone: pkg.receiver_phone || "",
-            receiverAddress: pkg.receiver_address || "",
-            receiverCity: pkg.receiver_city || "",
-            receiverProvince: pkg.receiver_province || "",
-            receiverDistrict: pkg.receiver_district || "",
-            receiverPostalCode: pkg.receiver_postal_code || "",
-            packageWeight: pkg.package_weight || "",
-            packageLength: pkg.package_length || "",
-            packageWidth: pkg.package_width || "",
-            packageHeight: pkg.package_height || "",
-            packageDescription: pkg.package_description || "",
-          });
+    if (!isNewPackage) {
+      const loadIncompletePackage = async () => {
+        try {
+          const incompletePackages = await packageService.getIncompletePackages();
+          if (incompletePackages.length > 0) {
+            const pkg = incompletePackages[0]; // Load the most recent incomplete package
+            setCurrentPackageId(pkg.id);
+            setStep(pkg.step_completed || 1);
 
-          // Restore selections
-          setSelectedCourierName(pkg.courier_name || undefined);
-          setSelectedServiceCode(pkg.courier_service_code || undefined);
-          setSelectedDeliveryMethod(pkg.delivery_method || "");
-          setSelectedPaymentMethod(pkg.payment_method || "");
-          setSelectedOffice(pkg.selected_office || "");
-          setPackingOptions(pkg.packing_options || []);
+            // Restore form data
+            setFormData({
+              senderName: pkg.sender_name || "",
+              senderPhone: pkg.sender_phone || "",
+              senderAddress: pkg.sender_address || "",
+              senderCity: pkg.sender_city || "",
+              senderProvince: pkg.sender_province || "",
+              senderDistrict: pkg.sender_district || "",
+              senderPostalCode: pkg.sender_postal_code || "",
+              receiverName: pkg.receiver_name || "",
+              receiverPhone: pkg.receiver_phone || "",
+              receiverAddress: pkg.receiver_address || "",
+              receiverCity: pkg.receiver_city || "",
+              receiverProvince: pkg.receiver_province || "",
+              receiverDistrict: pkg.receiver_district || "",
+              receiverPostalCode: pkg.receiver_postal_code || "",
+              packageWeight: pkg.package_weight || "",
+              packageLength: pkg.package_length || "",
+              packageWidth: pkg.package_width || "",
+              packageHeight: pkg.package_height || "",
+              packageDescription: pkg.package_description || "",
+            });
 
-          toast({
-            title: "Paket ditemukan",
-            description: "Melanjutkan pengisian formulir yang belum selesai.",
-          });
+            // Restore selections
+            setSelectedCourierName(pkg.courier_name || undefined);
+            setSelectedServiceCode(pkg.courier_service_code || undefined);
+            setPackingOptions(pkg.packing_options || []);
+
+            toast({
+              title: "Paket ditemukan",
+              description: "Melanjutkan pengisian formulir yang belum selesai.",
+            });
+          }
+        } catch (error) {
+          console.error('Error loading incomplete package:', error);
+          // Don't show error toast for now to avoid confusion
+          // toast({
+          //   title: "Error",
+          //   description: "Gagal memuat data paket yang belum selesai.",
+          //   variant: "destructive",
+          // });
         }
-      } catch (error) {
-        console.error('Error loading incomplete package:', error);
-        // Don't show error toast for now to avoid confusion
-        // toast({
-        //   title: "Error",
-        //   description: "Gagal memuat data paket yang belum selesai.",
-        //   variant: "destructive",
-        // });
-      }
-    };
+      };
 
-    loadIncompletePackage();
+      loadIncompletePackage();
+    }
   }, []);
 
   const performAutoSave = async () => {
@@ -202,9 +194,6 @@ export default function ShippingForm() {
         package_description: formData.packageDescription,
         courier_name: selectedCourierName,
         courier_service_code: selectedServiceCode,
-        delivery_method: selectedDeliveryMethod,
-        payment_method: selectedPaymentMethod,
-        selected_office: selectedOffice,
         packing_options: packingOptions,
       };
 
@@ -286,29 +275,30 @@ export default function ShippingForm() {
         package_description: formData.packageDescription,
         courier_name: selectedCourierName,
         courier_service_code: selectedServiceCode,
-        delivery_method: selectedDeliveryMethod,
-        payment_method: selectedPaymentMethod,
-        selected_office: selectedOffice,
         packing_options: packingOptions,
       };
 
       const savedPackage = await packageService.autoSavePackage(packageData, step + 1);
       setCurrentPackageId(savedPackage.id);
 
-      if (step === 2 && selectedServiceCode) {
-        // Proceed to payment step
-        setStep(3);
-      } else if (step === 3 && selectedDeliveryMethod && selectedPaymentMethod && (selectedPaymentMethod !== 'cash' || selectedOffice) && (selectedDeliveryMethod !== 'self' || selectedOffice)) {
-        // Simulate payment initiation - will redirect to payment page later
-        setPaymentStatus('success');
-        console.log('Payment initiated, proceeding to success step');
-        setStep(4);
-      } else if (step === 4) {
-        // Generate package code after success confirmation
+      if (step === 2) {
+        // Generate package code after courier selection
         const code = `SP${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
         setPackageCode(code);
         console.log('Package code generated:', code);
-        setStep(5);
+
+        // Save the tracking code to database
+        if (currentPackageId) {
+          await packageService.updatePackage(currentPackageId, {
+            tracking_code: code,
+            step_completed: 3,
+          });
+        }
+
+        setStep(3);
+      } else if (step === 3) {
+        // Finalize the package
+        await handleSubmit();
       } else {
         setStep(step + 1);
       }
@@ -338,6 +328,9 @@ export default function ShippingForm() {
           title: "Paket berhasil disimpan",
           description: "Data paket telah disimpan ke sistem.",
         });
+
+        // Navigate to history page after successful submission
+        navigate('/riwayat');
       } else {
         // Fallback: Save to localStorage if no package ID
         const packageData = {
@@ -437,7 +430,7 @@ export default function ShippingForm() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex justify-between">
-          {[1, 2, 3, 4, 5].map((s, index) => (
+          {[1, 2, 3].map((s, index) => (
             <div key={s} className="flex flex-col items-center flex-1">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold mb-2 ${
                 s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -445,9 +438,9 @@ export default function ShippingForm() {
                 {s}
               </div>
               <span className="text-xs text-muted-foreground text-center">
-                {['Data & Paket', 'Kurir', 'Pembayaran', 'Sukses', 'Kode'][index]}
+                {['Data & Paket', 'Kurir', 'Kode'][index]}
               </span>
-              {s < 5 && (
+              {s < 3 && (
                 <div className={`flex-1 h-1 ${s < step ? 'bg-primary' : 'bg-muted'}`} style={{ width: 'calc(100% - 2.5rem)', marginLeft: '1.25rem', marginTop: '0.5rem' }}></div>
               )}
             </div>
@@ -572,227 +565,11 @@ export default function ShippingForm() {
         )}
 
         {step === 3 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-4">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Pembayaran</h2>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-4">Pilih Metode Pengiriman Paket Anda</h3>
-                <RadioGroup value={selectedDeliveryMethod} onValueChange={setSelectedDeliveryMethod}>
-                  <div className="space-y-3">
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedDeliveryMethod === 'locker' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem value="locker" id="locker" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Package className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Simpan di Locker</div>
-                          <div className="text-sm text-muted-foreground">Masukkan paket ke locker yang tersedia.</div>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedDeliveryMethod === 'admin' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem value="admin" id="admin" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Building2 className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Serahkan ke Kurir</div>
-                          <div className="text-sm text-muted-foreground">kurir akan menjemput paket di alamat anda.</div>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedDeliveryMethod === 'self' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem value="self" id="self" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Truck className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Antar Sendiri</div>
-                          <div className="text-sm text-muted-foreground">Antar paket ke kantor yang anda pilih.</div>
-                        </div>
-                      </div>
-                    </label>
-
-                    {selectedDeliveryMethod === 'self' && (
-                      <div className="mt-4 ml-6">
-                        <h4 className="font-semibold mb-2 text-sm">Pilih Kantor Ekspedisi Terdekat</h4>
-                        <RadioGroup value={selectedOffice} onValueChange={setSelectedOffice}>
-                          <div className="space-y-2">
-                            {mockOffices.map((office) => (
-                              <label
-                                key={office.id}
-                                className={`flex items-center gap-4 p-3 border-2 rounded-lg cursor-pointer ${
-                                  selectedOffice === office.id ? 'border-primary bg-primary/5' : 'border-card-border'
-                                }`}
-                              >
-                                <RadioGroupItem value={office.id} id={office.id} />
-                                <div className="flex-1">
-                                  <div className="font-medium">{office.name}</div>
-                                  <div className="text-sm text-muted-foreground">{office.address}</div>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="pt-6 border-t border-border">
-                <h3 className="font-semibold mb-4">Pilih Metode Pembayaran</h3>
-                <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                  <div className="space-y-3">
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedPaymentMethod === 'ewallet' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem value="ewallet" id="ewallet" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Wallet className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">E-Wallet</div>
-                          <div className="text-sm text-muted-foreground">GoPay, OVO, Dana, LinkAja</div>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                      selectedPaymentMethod === 'transfer' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem value="transfer" id="transfer" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <CreditCard className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Transfer Bank</div>
-                          <div className="text-sm text-muted-foreground">BCA, BNI, Mandiri, BRI</div>
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`flex items-center gap-4 p-4 border-2 rounded-lg ${
-                      selectedDeliveryMethod === 'locker' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover-elevate'
-                    } ${
-                      selectedPaymentMethod === 'cash' ? 'border-primary bg-primary/5' : 'border-card-border'
-                    }`}>
-                      <RadioGroupItem
-                        value="cash"
-                        id="cash"
-                        disabled={selectedDeliveryMethod === 'locker'}
-                      />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Building2 className="w-5 h-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Bayar Tunai</div>
-                          <div className="text-sm text-muted-foreground">Bayar tunai langsung saat menyerahkan paket ke kantor atau kurir</div>
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                </RadioGroup>
-
-                {selectedDeliveryMethod === 'admin' && selectedPaymentMethod === 'cash' && (
-                  <div className="mt-4 ml-6">
-                    <p className="text-sm text-muted-foreground">Bayar tunai ketika kurir sampai.</p>
-                  </div>
-                )}
-
-                {selectedDeliveryMethod === 'self' && selectedPaymentMethod === 'cash' && selectedOffice && (
-                  <div className="mt-4 ml-6">
-                    <h4 className="font-semibold mb-2 text-sm">Kantor Ekspedisi Terpilih (Bayar Tunai Di)</h4>
-                    <div className="p-3 border-2 rounded-lg border-primary bg-primary/5">
-                      <div className="font-medium">{mockOffices.find(o => o.id === selectedOffice)?.name}</div>
-                      <div className="text-sm text-muted-foreground">{mockOffices.find(o => o.id === selectedOffice)?.address}</div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 bg-muted/50 rounded-lg p-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">Total Biaya:</span>
-                    <span className="text-2xl font-bold text-primary">
-                      Rp {calculateTotalCost().toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-right">
-                    <a href="#" className="text-sm text-primary hover:underline">Detail Harga</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-6">
-            <div className="text-center py-8">
-              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-
-              <h2 className="text-2xl font-bold mb-2">Pembayaran Berhasil!</h2>
-              <p className="text-muted-foreground mb-6">
-                Pembayaran Anda telah berhasil diproses. Klik tombol di bawah untuk mendapatkan kode paket.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="space-y-6">
-            <div className="text-center py-8">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Package className="w-10 h-10 text-primary" />
-              </div>
-
-              <h2 className="text-2xl font-bold mb-2">Kode Paket Anda</h2>
-              <p className="text-muted-foreground mb-6">
-                Simpan dan terapkan kode ini pada paket pengirim
-              </p>
-
-              <div className="bg-card border-2 border-primary rounded-xl p-8 mb-6">
-                <div className="text-sm text-muted-foreground mb-2">Kode Paket</div>
-                <div className="text-5xl font-bold text-primary tracking-wider font-mono" data-testid="text-package-code">
-                  {packageCode}
-                </div>
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold mb-3">Langkah Selanjutnya:</h3>
-                <ol className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <span className="font-semibold">1.</span>
-                    <span>Tunjukkan / tempelkan kode <strong className="text-foreground">{packageCode}</strong> di paket anda saat drop-off.</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-semibold">2.</span>
-                    <span>Serahkan paket Anda ke admin/kurir yang tersedia.</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-semibold">3.</span>
-                    <span>Admin akan memproses dan meneruskan paket ke kurir pilihan Anda.</span>
-                  </li>
-                </ol>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                Nomor resi dari kurir akan dikirimkan setelah paket diproses oleh admin
-              </div>
-            </div>
-          </div>
+          <Step3KodePaket packageCode={packageCode} />
         )}
 
         <div className="flex gap-4 mt-8">
-          {step > 1 && step < 5 && (
+          {step > 1 && step < 3 && (
             <Button
               variant="outline"
               onClick={handleBack}
@@ -803,13 +580,13 @@ export default function ShippingForm() {
             </Button>
           )}
 
-          {step < 5 && (
+          {step < 3 && (
             <Button
               onClick={handleNext}
               className="flex-1"
-              data-testid={step === 4 ? "button-generate-code" : "button-next"}
+              data-testid={step === 2 ? "button-generate-code" : "button-next"}
             >
-              {step === 3 ? 'Bayar Sekarang' : step === 4 ? 'Generate Kode Paket' : 'Lanjutkan'}
+              {step === 2 ? 'Dapatkan Kode paket' : 'Lanjut'}
             </Button>
           )}
         </div>

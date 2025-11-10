@@ -77,53 +77,85 @@ export const packageService = {
     const sessionId = getUserSessionId()
     const deviceId = getDeviceId()
 
-    // Check if there's an existing in-progress package
-    const { data: existingPackages, error: fetchError } = await supabase
-      .from('packages')
-      .select('*')
-      .eq('user_session_id', sessionId)
-      .eq('status', 'in_progress')
-      .eq('deleted', false)
-      .order('last_updated', { ascending: false })
-      .limit(1)
+    let data: PackageData;
 
-    if (fetchError) throw fetchError
-
-    const existingPackage = existingPackages?.[0]
-
-    if (existingPackage) {
-      // Update existing package
-      const { data, error } = await supabase
+    try {
+      // Check if there's an existing in-progress package
+      const { data: existingPackages, error: fetchError } = await supabase
         .from('packages')
-        .update({
-          ...packageData,
-          step_completed: step,
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', existingPackage.id)
-        .select()
-        .single()
+        .select('*')
+        .eq('user_session_id', sessionId)
+        .eq('status', 'in_progress')
+        .eq('deleted', false)
+        .order('last_updated', { ascending: false })
+        .limit(1)
 
-      if (error) throw error
-      return data
-    } else {
-      // Create new package
-      const { data, error } = await supabase
-        .from('packages')
-        .insert({
-          ...packageData,
-          user_session_id: sessionId,
-          device_id: deviceId,
-          status: 'in_progress',
-          step_completed: step,
-          deleted: false
-        })
-        .select()
-        .single()
+      if (fetchError) throw fetchError
 
-      if (error) throw error
-      return data
+      const existingPackage = existingPackages?.[0]
+
+      if (existingPackage) {
+        // Update existing package
+        const { data: updatedData, error } = await supabase
+          .from('packages')
+          .update({
+            ...packageData,
+            step_completed: step,
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', existingPackage.id)
+          .select()
+          .single()
+
+        if (error) throw error
+        data = updatedData
+      } else {
+        // Create new package in database immediately
+        const { data: newData, error } = await supabase
+          .from('packages')
+          .insert({
+            ...packageData,
+            user_session_id: sessionId,
+            device_id: deviceId,
+            status: 'in_progress',
+            step_completed: step,
+            deleted: false,
+            is_complete: false
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+        data = newData
+      }
+    } catch (error) {
+      // If Supabase fails, create local data with generated ID
+      const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      data = {
+        id: localId,
+        user_session_id: sessionId,
+        device_id: deviceId,
+        status: 'in_progress',
+        step_completed: step,
+        deleted: false,
+        is_complete: false,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        ...packageData
+      } as PackageData
     }
+
+    // Also save to localStorage as backup
+    const existingLocalPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]');
+    const existingIndex = existingLocalPackages.findIndex((p: PackageData) => p.id === data.id);
+    if (existingIndex >= 0) {
+      existingLocalPackages[existingIndex] = data;
+    } else {
+      existingLocalPackages.push(data);
+    }
+    localStorage.setItem('simpanaja_packages', JSON.stringify(existingLocalPackages));
+
+    return data
   },
 
   // Update package

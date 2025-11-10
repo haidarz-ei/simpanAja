@@ -1,11 +1,12 @@
-import { Home, Package, Box, Clock } from "lucide-react";
+import { Home, Package, Box, Clock, Settings, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const navItems = [
   { icon: Home, label: "Beranda", path: "/", testId: "nav-home" },
   { icon: Box, label: "Paket", path: "/packages", testId: "nav-packages" },
-  { icon: Package, label: "Kirim", path: "/kirim", testId: "nav-kirim" },
-  { icon: Clock, label: "Riwayat", path: "/riwayat", testId: "nav-riwayat" },
+  { icon: User, label: "Saya", path: "/profile", testId: "nav-profile" },
+  { icon: Clock, label: "Status", path: "/riwayat", testId: "nav-riwayat" },
+  { icon: Settings, label: "Admin", path: "/admin", testId: "nav-admin" },
 ];
 
 export default function BottomNav() {

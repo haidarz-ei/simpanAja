@@ -8,6 +8,8 @@ import { packageService } from "@/lib/packageService";
 import { PackageData } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
+import Pembayaran from "./Pembayaran";
+import { motion } from "framer-motion";
 
 export default function Packages() {
   const [, navigate] = useLocation();
@@ -37,7 +39,7 @@ export default function Packages() {
       if (savedPackages) {
         const parsed = JSON.parse(savedPackages);
         const filtered = parsed.filter((pkg: PackageData) =>
-          pkg.sender_name || pkg.receiver_name || pkg.package_weight
+          pkg.sender_name || pkg.receiver_name || pkg.package_weight || pkg.packing_options
         );
         setPackages(filtered);
       }
@@ -47,6 +49,12 @@ export default function Packages() {
   };
 
   const calculateCompleteness = (pkg: PackageData): number => {
+    // If step_completed is 3 or more, consider complete
+    if (pkg.step_completed && pkg.step_completed >= 3) {
+      return 100;
+    }
+
+    // Otherwise, calculate based on filled fields but cap at 99 to show as incomplete
     // Required fields for sender (4 required)
     const senderRequired = [
       pkg.sender_name,
@@ -55,7 +63,7 @@ export default function Packages() {
       pkg.sender_city,
     ].filter(f => f && f.trim() !== '').length;
 
-    // Required fields for receiver (5 required)
+    // Required fields for receiver (6 required)
     const receiverRequired = [
       pkg.receiver_name,
       pkg.receiver_phone,
@@ -71,15 +79,17 @@ export default function Packages() {
       pkg.package_description,
     ].filter(f => f && f.trim() !== '').length;
 
-    // Total required fields: 4 (sender) + 5 (receiver) + 2 (package) = 11
-    const totalRequired = 11;
+    // Total required fields: 4 (sender) + 6 (receiver) + 2 (package) = 12
+    const totalRequired = 12;
     const totalFilled = senderRequired + receiverRequired + packageRequired;
 
-    return Math.round((totalFilled / totalRequired) * 100);
+    const percentage = Math.round((totalFilled / totalRequired) * 100);
+    // Cap at 99% to ensure it shows as incomplete until step 3 is completed
+    return Math.min(percentage, 99);
   };
 
   const handleNewPackage = () => {
-    navigate('/kirim');
+    navigate('/kirim?new=true');
   };
 
   const handleEditPackage = (id: string) => {
@@ -140,14 +150,23 @@ export default function Packages() {
     const completeness = calculateCompleteness(pkg);
     const isComplete = completeness === 100;
 
-    // Calculate total cost for complete packages
+    // Calculate total cost for packages with any cost data
     let totalCost: number | undefined;
-    if (isComplete && pkg.package_weight) {
-      const weight = parseFloat(pkg.package_weight);
-      // Mock cost calculation: base cost + weight-based cost
+    if (pkg.package_weight || pkg.packing_options) {
+      const weight = parseFloat(pkg.package_weight || '0');
+      // Mock cost calculation: base cost + weight-based cost + packing cost
       const baseCost = 15000; // Base shipping cost
       const weightCost = weight * 10000; // Rp 10,000 per kg
-      totalCost = baseCost + weightCost;
+      const packingCost = (pkg.packing_options || []).reduce((total: number, option: string) => {
+        switch (option) {
+          case 'bubble': return total + 5000;
+          case 'cardboard': return total + 8000;
+          case 'wooden': return total + 25000;
+          case 'insurance': return total + 10000;
+          default: return total;
+        }
+      }, 0);
+      totalCost = baseCost + weightCost + packingCost;
     }
 
     return {
@@ -168,41 +187,103 @@ export default function Packages() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+      <motion.div
+        className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         <div className="text-center">
-          <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <motion.div
+            className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          >
             <Plus className="w-6 h-6 text-white" />
-          </div>
-          <p className="text-gray-600">Memuat data paket...</p>
+          </motion.div>
+          <motion.p
+            className="text-gray-600"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            Memuat data paket...
+          </motion.p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut"
+      }
+    }
+  };
+
   return (
-  <div className="min-h-screen bg-background pb-32 relative">
+  <motion.div
+    className="min-h-screen bg-background pb-32 relative"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.8 }}
+  >
     <Header />
 
     {/* Main Content */}
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {packages.length === 0 && (
-          <ShipmentCard type="empty" onAction={handleNewPackage} />
-        )}
-
-        {shipmentCards.map((card) => (
-          <ShipmentCard key={card.id} {...card} />
-        ))}
-      </div>
-
       {selectedPackages.length > 0 && (
-        <div className="mt-6 p-4 bg-green-100 border border-green-300 rounded-lg">
+        <motion.div
+          className="mb-6 p-4 bg-green-100 border border-green-300 rounded-lg"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
           <p className="text-green-800">
             {selectedPackages.length} paket dipilih
           </p>
-        </div>
+        </motion.div>
       )}
+
+      {/* Cards Grid */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {packages.length === 0 && (
+          <motion.div variants={itemVariants}>
+            <ShipmentCard type="empty" onAction={handleNewPackage} />
+          </motion.div>
+        )}
+
+        {shipmentCards.map((card, index) => (
+          <motion.div
+            key={card.id}
+            variants={itemVariants}
+            transition={{ delay: index * 0.1 }}
+          >
+            <ShipmentCard {...card} />
+          </motion.div>
+        ))}
+      </motion.div>
 
       <PackageFooter
         totalPackages={packageCount}
@@ -219,16 +300,26 @@ export default function Packages() {
     </main>
 
     {/* Floating Add Button — keluarin dari main */}
-    <div className="fixed bottom-40 right-6 z-50">
-      <Button
-        onClick={handleNewPackage}
-        size="lg"
-        className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-400/50 transition-transform hover:scale-110"
+    <motion.div
+      className="fixed bottom-40 right-6 z-50"
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ duration: 0.3, delay: 0.5, type: "spring" }}
+    >
+      <motion.div
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
       >
-        <Plus className="w-6 h-6" />
-      </Button>
-    </div>
-  </div>
+        <Button
+          onClick={handleNewPackage}
+          size="lg"
+          className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-400/50 transition-transform hover:scale-110"
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      </motion.div>
+    </motion.div>
+  </motion.div>
 );
 
 }

@@ -33,8 +33,9 @@ export default defineConfig({
   },
   server: {
     fs: {
-      strict: true,
+      strict: false,
       deny: ["**/.*"],
     },
+    middlewareMode: true,
   },
 });

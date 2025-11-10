@@ -1,6 +1,15 @@
+import { useState } from "react";
 import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { Package, Info } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 
 interface PackageFooterProps {
   totalPackages: number;
@@ -9,6 +18,7 @@ interface PackageFooterProps {
   allSelected: boolean;
   onSelectAll: (checked: boolean) => void;
   onContinue: () => void;
+  selectedPackages?: any[]; // Add selected packages for cost breakdown
 }
 
 export function PackageFooter({
@@ -19,6 +29,7 @@ export function PackageFooter({
   onSelectAll,
   onContinue,
 }: PackageFooterProps) {
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-md shadow-2xl">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -77,17 +88,49 @@ export function PackageFooter({
 
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <Package className="w-3 h-3" />
-                Total Biaya Pengiriman
-              </div>
               <div className="text-2xl text-primary font-semibold">
                 Rp {totalCost.toLocaleString("id-ID")}
               </div>
-              <button className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
-                <Info className="w-3 h-3" />
-                Lihat Detail Biaya
-              </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 mt-1 h-auto p-0"
+                  >
+                    <Info className="w-3 h-3" />
+                    Lihat Detail Biaya
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Rincian Biaya Pengiriman</DialogTitle>
+                    <DialogDescription>
+                      Breakdown biaya untuk {selectedCount} paket yang dipilih
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-border/50">
+                        <span className="text-sm">Biaya Dasar Pengiriman</span>
+                        <span className="font-semibold">Rp {(selectedCount * 15000).toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border/50">
+                        <span className="text-sm">Biaya Berat</span>
+                        <span className="font-semibold">Rp {(totalCost - (selectedCount * 15000)).toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm">Biaya Kurir</span>
+                        <span className="font-semibold">Rp 0</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-4 border-t border-border">
+                      <span className="font-semibold">Total</span>
+                      <span className="text-lg font-bold text-primary">Rp {totalCost.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             <Button
               size="lg"
@@ -95,7 +138,7 @@ export function PackageFooter({
               disabled={selectedCount === 0}
               className="bg-orange-500 hover:bg-orange-600 text-white px-8"
             >
-              Lanjut Pembayaran
+              Lanjut Bayar
             </Button>
           </div>
         </div>

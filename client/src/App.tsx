@@ -9,6 +9,7 @@ import Kirim from "@/pages/Kirim";
 import Packages from "@/pages/Packages";
 import Riwayat from "@/pages/Riwayat";
 import Admin from "@/pages/Admin";
+import Pembayaran from "@/pages/Pembayaran";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/kirim" component={Kirim} />
       <Route path="/packages" component={Packages} />
+      <Route path="/pembayaran" component={Pembayaran} />
       <Route path="/riwayat" component={Riwayat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

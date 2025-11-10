@@ -43,14 +43,12 @@ export interface PackageData {
   // Additional fields
   packing_options?: string[]
   delivery_method?: string
-  payment_method?: string
   selected_office?: string
 
   // Status
   status?: string
   step_completed?: number
   is_complete?: boolean
-  payment_status?: 'pending' | 'paid' | 'failed'
   tracking_code?: string
 
   // Timestamps
@@ -62,6 +60,14 @@ export interface PackageData {
   // Session tracking (for anonymous users)
   user_session_id: string
   device_id?: string
+
+  // Payment-related fields (separate from shipping form)
+  payment_delivery_method?: string
+  payment_method?: string
+  payment_selected_office?: string
+  payment_total_cost?: number
+  payment_status?: 'pending' | 'paid' | 'failed'
+  payment_completed_at?: string
 }
 
 // TODO: Production deployment checklist:

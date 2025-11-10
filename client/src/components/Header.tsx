@@ -22,7 +22,7 @@ export default function Header() {
               Kirim Paket
             </Link>
             <Link href="/riwayat" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-riwayat">
-              Riwayat
+              Status
             </Link>
             <Link href="/admin" className="text-sm font-medium text-foreground hover:text-primary transition-colors" data-testid="link-admin">
               Admin

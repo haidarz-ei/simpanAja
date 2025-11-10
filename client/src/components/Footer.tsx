@@ -14,7 +14,7 @@ export default function Footer() {
               <span className="font-bold text-xl">SimpanAja</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Solusi pengiriman mandiri yang memudahkan Anda mengirim paket kapan saja.
+              Solusi pengiriman mandiri yang memudahkan Anda mengirim paket dimana saja dan kapan saja.
             </p>
           </div>
 
