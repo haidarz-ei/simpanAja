@@ -5,10 +5,10 @@ import dotenv from 'dotenv';
 dotenv.config({ path: './server/.env' });
 
 const pool = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL,
-  ssl: {
+  connectionString: process.env.SUPABASE_DB_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  ssl: process.env.SUPABASE_DB_URL ? {
     rejectUnauthorized: false // Required for Supabase
-  }
+  } : false // No SSL for local development
 });
 
 // Test database connection
@@ -75,7 +75,6 @@ export interface PackageRecord {
 
   // Status
   is_complete: boolean;
-  payment_status?: 'pending' | 'paid' | 'failed';
   tracking_code?: string;
 
   // Timestamps
@@ -86,4 +85,19 @@ export interface PackageRecord {
 
   // Session tracking
   user_session_id: string;
+}
+
+// Payment data interface for separate payments table
+export interface PaymentRecord {
+  id: string;
+  package_id: string;
+  amount: number;
+  method?: 'ewallet' | 'transfer' | 'cash';
+  delivery_method?: 'locker' | 'admin' | 'self';
+  selected_office?: string;
+  status: 'pending' | 'paid' | 'failed' | 'refunded';
+  transaction_id?: string;
+  payment_date?: string;
+  created_at: string;
+  updated_at: string;
 }

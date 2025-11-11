@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Package, User, MapPin, Plus, History, Search, Edit, X } from "lucide-react";
+import { Package, User, MapPin, Plus, History, Search, Edit, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useState } from "react";
 
 type Address = {
   id: string;
@@ -115,6 +116,34 @@ export default function Step1DataPaket({
   const handleDeselectReceiver = () => {
     setSelectedReceiverAddress(null);
   };
+
+  const [showPriceDetails, setShowPriceDetails] = useState(false);
+
+  // Calculate price breakdown
+  const calculatePriceBreakdown = () => {
+    const weight = parseFloat(formData.packageWeight || '0');
+    const baseCost = 15000; // Base shipping cost
+    const weightCost = weight * 10000; // Rp 10,000 per kg
+    const packingCost = packingOptions.reduce((total, option) => {
+      switch (option) {
+        case 'bubble': return total + 5000;
+        case 'cardboard': return total + 8000;
+        case 'wooden': return total + 25000;
+        case 'insurance': return total + 10000;
+        default: return total;
+      }
+    }, 0);
+
+    return {
+      baseCost,
+      weightCost,
+      packingCost,
+      total: baseCost + weightCost + packingCost
+    };
+  };
+
+  const priceBreakdown = calculatePriceBreakdown();
+
   return (
     <div className="space-y-6">
       {/* Data Pengirim */}
@@ -737,12 +766,38 @@ export default function Step1DataPaket({
         <div className="flex justify-between items-center">
           <span className="font-semibold">Total Biaya:</span>
           <span className="text-2xl font-bold text-primary">
-            Rp {calculateTotalCost().toLocaleString('id-ID')}
+            Rp {priceBreakdown.total.toLocaleString('id-ID')}
           </span>
         </div>
         <div className="mt-2 text-right">
-          <a href="#" className="text-sm text-primary hover:underline">Detail Harga</a>
+          <Button
+            variant="link"
+            className="text-sm text-primary hover:underline p-0 h-auto"
+            onClick={() => setShowPriceDetails(!showPriceDetails)}
+          >
+            {showPriceDetails ? 'Sembunyikan Detail' : 'Detail Harga'}
+          </Button>
         </div>
+        {showPriceDetails && (
+          <div className="mt-4 space-y-2 border-t pt-4">
+            <div className="flex justify-between text-sm">
+              <span>Biaya Dasar:</span>
+              <span>Rp {priceBreakdown.baseCost.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Biaya Berat ({formData.packageWeight || '0'} kg):</span>
+              <span>Rp {priceBreakdown.weightCost.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Biaya Packing:</span>
+              <span>Rp {priceBreakdown.packingCost.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="flex justify-between font-semibold border-t pt-2">
+              <span>Total:</span>
+              <span>Rp {priceBreakdown.total.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

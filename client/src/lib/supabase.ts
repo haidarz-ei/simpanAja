@@ -61,13 +61,28 @@ export interface PackageData {
   user_session_id: string
   device_id?: string
 
-  // Payment-related fields (separate from shipping form)
-  payment_delivery_method?: string
-  payment_method?: string
-  payment_selected_office?: string
-  payment_total_cost?: number
-  payment_status?: 'pending' | 'paid' | 'failed'
-  payment_completed_at?: string
+  // Payment-related fields (now in separate payments table)
+  // payment_delivery_method?: string
+  // payment_method?: string
+  // payment_selected_office?: string
+  // payment_total_cost?: number
+  // payment_status?: 'pending' | 'paid' | 'failed'
+  // payment_completed_at?: string
+}
+
+// Payment data interface for separate payments table
+export interface PaymentData {
+  id: string
+  package_id: string
+  amount: number
+  method?: 'ewallet' | 'transfer' | 'cash'
+  delivery_method?: 'locker' | 'admin' | 'self'
+  selected_office?: string
+  status: 'pending' | 'paid' | 'failed' | 'refunded'
+  transaction_id?: string
+  payment_date?: string
+  created_at: string
+  updated_at: string
 }
 
 // TODO: Production deployment checklist:

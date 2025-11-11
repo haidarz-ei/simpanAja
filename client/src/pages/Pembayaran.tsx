@@ -6,7 +6,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CreditCard, Wallet, Building2, Truck, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { packageService } from "@/lib/packageService";
+import { packageService, paymentService } from "@/lib/packageService";
 import { PackageData } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 
@@ -62,12 +62,22 @@ export default function Pembayaran() {
 
     try {
       if (currentPackageId) {
-        // Update package with payment info
+        // Update package with delivery method and selected office
         await packageService.updatePackage(currentPackageId, {
           delivery_method: selectedDeliveryMethod,
-          payment_method: selectedPaymentMethod,
           selected_office: selectedOffice,
           step_completed: 4, // Proceed to success step
+        });
+
+        // Create payment record in payments table
+        const totalCost = calculateTotalCost();
+        await paymentService.createPayment({
+          package_id: currentPackageId,
+          amount: totalCost,
+          method: selectedPaymentMethod as 'ewallet' | 'transfer' | 'cash',
+          delivery_method: selectedDeliveryMethod as 'locker' | 'admin' | 'self',
+          selected_office: selectedOffice,
+          status: 'paid', // Simulate payment success
         });
 
         // Simulate payment success

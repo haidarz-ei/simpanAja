@@ -1,4 +1,4 @@
-import { supabase, PackageData } from './supabase'
+import { supabase, PackageData, PaymentData } from './supabase'
 
 // Get user session ID (for anonymous users)
 export const getUserSessionId = (): string => {
@@ -80,6 +80,23 @@ export const packageService = {
     let data: PackageData;
 
     try {
+      // Clean up old in-progress packages, keep only the most recent
+      const { data: allInProgress } = await supabase
+        .from('packages')
+        .select('id')
+        .eq('user_session_id', sessionId)
+        .eq('status', 'in_progress')
+        .eq('deleted', false)
+        .order('last_updated', { ascending: false })
+
+      if (allInProgress && allInProgress.length > 1) {
+        const idsToDelete = allInProgress.slice(1).map(p => p.id)
+        await supabase
+          .from('packages')
+          .update({ deleted: true })
+          .in('id', idsToDelete)
+      }
+
       // Check if there's an existing in-progress package
       const { data: existingPackages, error: fetchError } = await supabase
         .from('packages')
@@ -198,7 +215,6 @@ export const packageService = {
       .update({
         status: 'completed',
         tracking_code: trackingCode,
-        payment_status: 'paid',
         is_complete: true,
         submitted_at: new Date().toISOString(),
         last_updated: new Date().toISOString()
@@ -235,5 +251,115 @@ export const packageService = {
       throw error
     }
     return data
+  }
+}
+
+// Payment CRUD operations
+export const paymentService = {
+  // Get all payments
+  async getPayments(): Promise<PaymentData[]> {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  // Get payment by ID
+  async getPaymentById(id: string): Promise<PaymentData | null> {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw error
+    }
+    return data
+  },
+
+  // Get payment for a specific package
+  async getPaymentForPackage(packageId: string): Promise<PaymentData | null> {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('package_id', packageId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw error
+    }
+    return data
+  },
+
+  // Create new payment
+  async createPayment(paymentData: Omit<PaymentData, 'id' | 'created_at' | 'updated_at'>): Promise<PaymentData> {
+    const { data, error } = await supabase
+      .from('payments')
+      .insert(paymentData)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Update payment
+  async updatePayment(id: string, updates: Partial<PaymentData>): Promise<PaymentData> {
+    const { data, error } = await supabase
+      .from('payments')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Update payment status
+  async updatePaymentStatus(id: string, status: PaymentData['status'], transactionId?: string): Promise<PaymentData> {
+    const updates: Partial<PaymentData> = {
+      status,
+      updated_at: new Date().toISOString()
+    }
+
+    if (transactionId) {
+      updates.transaction_id = transactionId
+    }
+
+    if (status === 'paid') {
+      updates.payment_date = new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('payments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Delete payment
+  async deletePayment(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
   }
 }

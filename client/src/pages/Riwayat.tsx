@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, MapPin, ArrowLeft } from "lucide-react";
+import { Package, MapPin, ArrowLeft, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { packageService } from "@/lib/packageService";
@@ -49,12 +49,7 @@ const dummyPackages: PackageData[] = [
     deleted: false,
     user_session_id: "session_123",
     device_id: "device_123",
-    payment_delivery_method: "pickup",
-    payment_method: "transfer",
-    payment_selected_office: "Kantor Pusat",
-    payment_total_cost: 25000,
-    payment_status: "pending",
-    payment_completed_at: undefined
+    // Payment fields moved to separate payments table
   },
   {
     id: "2",
@@ -92,12 +87,7 @@ const dummyPackages: PackageData[] = [
     deleted: false,
     user_session_id: "session_123",
     device_id: "device_123",
-    payment_delivery_method: "dropoff",
-    payment_method: "cod",
-    payment_selected_office: "Kantor Bandung",
-    payment_total_cost: 15000,
-    payment_status: "paid",
-    payment_completed_at: "2024-11-12T14:20:00Z"
+    // Payment fields moved to separate payments table
   },
   {
     id: "3",
@@ -135,12 +125,7 @@ const dummyPackages: PackageData[] = [
     deleted: false,
     user_session_id: "session_123",
     device_id: "device_123",
-    payment_delivery_method: "pickup",
-    payment_method: "transfer",
-    payment_selected_office: "Kantor Surabaya",
-    payment_total_cost: 35000,
-    payment_status: "paid",
-    payment_completed_at: "2024-11-09T09:45:00Z"
+    // Payment fields moved to separate payments table
   },
   {
     id: "4",
@@ -178,12 +163,7 @@ const dummyPackages: PackageData[] = [
     deleted: false,
     user_session_id: "session_123",
     device_id: "device_123",
-    payment_delivery_method: "dropoff",
-    payment_method: "cod",
-    payment_selected_office: "Kantor Semarang",
-    payment_total_cost: 12000,
-    payment_status: "pending",
-    payment_completed_at: undefined
+    // Payment fields moved to separate payments table
   }
 ];
 
@@ -219,7 +199,23 @@ export default function Riwayat() {
   const returnPackages = packages.filter(pkg => pkg.status === 'returned');
   const dibatalkanPackages = packages.filter(pkg => pkg.status === 'cancelled');
 
-  const renderPackageList = (packages: PackageData[]) => (
+  const handleTrackPackage = (pkg: PackageData) => {
+    // For now, show tracking details in an alert
+    // This can be expanded to show a modal or navigate to a tracking page
+    const trackingInfo = `
+Tracking Code: ${pkg.tracking_code || `PKG-${pkg.id.slice(-6)}`}
+Status: ${pkg.status === 'in_progress' ? 'Dalam Perjalanan' : pkg.status}
+Courier: ${pkg.courier_name || 'N/A'}
+From: ${pkg.sender_city || 'N/A'}
+To: ${pkg.receiver_name || 'N/A'} - ${pkg.receiver_city || 'N/A'}
+Date: ${new Date(pkg.created_at).toLocaleDateString('id-ID')}
+Last Updated: ${new Date(pkg.last_updated).toLocaleDateString('id-ID')}
+    `.trim();
+
+    alert(`Detail Tracking Paket:\n\n${trackingInfo}`);
+  };
+
+  const renderPackageList = (packages: PackageData[], showTrackButton: boolean = false) => (
     <div className="space-y-4">
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">
@@ -247,7 +243,7 @@ export default function Riwayat() {
                 </div>
               </div>
 
-              <div>
+              <div className="flex flex-col items-end gap-4">
                 {pkg.is_complete && (
                   <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
                     Selesai
@@ -272,6 +268,18 @@ export default function Riwayat() {
                   <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">
                     Dibatalkan
                   </Badge>
+                )}
+
+                {showTrackButton && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTrackPackage(pkg)}
+                    className="flex items-center gap-2"
+                  >
+                    <Search className="w-4 h-4" />
+                    Lacak
+                  </Button>
                 )}
               </div>
             </div>
@@ -312,7 +320,7 @@ export default function Riwayat() {
             </TabsList>
 
             <TabsContent value="status" className="mt-6">
-              {renderPackageList(statusPackages)}
+              {renderPackageList(statusPackages, true)}
             </TabsContent>
 
             <TabsContent value="riwayat" className="mt-6">
