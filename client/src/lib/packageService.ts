@@ -1,16 +1,12 @@
 import { supabase, PackageData, PaymentData } from './supabase'
 
-// Get user session ID (for anonymous users)
-export const getUserSessionId = (): string => {
-  let sessionId = localStorage.getItem('user_session_id')
-  if (!sessionId) {
-    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('user_session_id', sessionId)
-  }
-  return sessionId
+// Get current authenticated user ID
+export const getCurrentUserId = async (): Promise<string | null> => {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id || null
 }
 
-// Get device ID
+// Get device ID (for additional tracking)
 export const getDeviceId = (): string => {
   let deviceId = localStorage.getItem('device_id')
   if (!deviceId) {
@@ -22,13 +18,15 @@ export const getDeviceId = (): string => {
 
 // Package CRUD operations
 export const packageService = {
-  // Get all packages for current user session
+  // Get all packages for current authenticated user
   async getPackages(): Promise<PackageData[]> {
-    const sessionId = getUserSessionId()
+    const userId = await getCurrentUserId()
+    if (!userId) return []
+
     const { data, error } = await supabase
       .from('packages')
       .select('*')
-      .eq('user_session_id', sessionId)
+      .eq('user_id', userId)
       .eq('deleted', false)
       .order('created_at', { ascending: false })
 
@@ -36,84 +34,43 @@ export const packageService = {
     return data || []
   },
 
-  // Get incomplete packages for recovery
-  async getIncompletePackages(): Promise<PackageData[]> {
-    const sessionId = getUserSessionId()
+  // Get single incomplete package for current user (only one allowed)
+  async getIncompletePackage(): Promise<PackageData | null> {
+    const userId = await getCurrentUserId()
+    if (!userId) return null
+
     const { data, error } = await supabase
       .from('packages')
       .select('*')
-      .eq('user_session_id', sessionId)
+      .eq('user_id', userId)
       .eq('deleted', false)
+      .eq('is_complete', false)
       .in('status', ['draft', 'in_progress'])
       .order('last_updated', { ascending: false })
-
-    if (error) throw error
-    return data || []
-  },
-
-  // Create new package
-  async createPackage(packageData: Omit<PackageData, 'id' | 'created_at' | 'last_updated' | 'deleted' | 'user_session_id' | 'device_id' | 'status' | 'step_completed'>): Promise<PackageData> {
-    const sessionId = getUserSessionId()
-    const deviceId = getDeviceId()
-    const { data, error } = await supabase
-      .from('packages')
-      .insert({
-        ...packageData,
-        user_session_id: sessionId,
-        device_id: deviceId,
-        status: 'draft',
-        step_completed: 0,
-        deleted: false
-      })
-      .select()
+      .limit(1)
       .single()
 
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw error
+    }
     return data
   },
 
-  // Auto-save package (update existing or create new)
+  // Auto-save package (single incomplete package per user)
   async autoSavePackage(packageData: Partial<PackageData>, step: number): Promise<PackageData> {
-    const sessionId = getUserSessionId()
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('User not authenticated')
+
     const deviceId = getDeviceId()
 
-    let data: PackageData;
-
     try {
-      // Clean up old in-progress packages, keep only the most recent
-      const { data: allInProgress } = await supabase
-        .from('packages')
-        .select('id')
-        .eq('user_session_id', sessionId)
-        .eq('status', 'in_progress')
-        .eq('deleted', false)
-        .order('last_updated', { ascending: false })
-
-      if (allInProgress && allInProgress.length > 1) {
-        const idsToDelete = allInProgress.slice(1).map(p => p.id)
-        await supabase
-          .from('packages')
-          .update({ deleted: true })
-          .in('id', idsToDelete)
-      }
-
-      // Check if there's an existing in-progress package
-      const { data: existingPackages, error: fetchError } = await supabase
-        .from('packages')
-        .select('*')
-        .eq('user_session_id', sessionId)
-        .eq('status', 'in_progress')
-        .eq('deleted', false)
-        .order('last_updated', { ascending: false })
-        .limit(1)
-
-      if (fetchError) throw fetchError
-
-      const existingPackage = existingPackages?.[0]
+      // Check if there's an existing incomplete package for this user
+      const existingPackage = await this.getIncompletePackage()
 
       if (existingPackage) {
-        // Update existing package
-        const { data: updatedData, error } = await supabase
+        // Update existing incomplete package
+        const { data, error } = await supabase
           .from('packages')
           .update({
             ...packageData,
@@ -125,14 +82,14 @@ export const packageService = {
           .single()
 
         if (error) throw error
-        data = updatedData
+        return data
       } else {
-        // Create new package in database immediately
-        const { data: newData, error } = await supabase
+        // Create new incomplete package (only if none exists)
+        const { data, error } = await supabase
           .from('packages')
           .insert({
             ...packageData,
-            user_session_id: sessionId,
+            user_id: userId,
             device_id: deviceId,
             status: 'in_progress',
             step_completed: step,
@@ -143,36 +100,46 @@ export const packageService = {
           .single()
 
         if (error) throw error
-        data = newData
+        return data
       }
     } catch (error) {
-      // If Supabase fails, create local data with generated ID
-      const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      data = {
-        id: localId,
-        user_session_id: sessionId,
-        device_id: deviceId,
-        status: 'in_progress',
-        step_completed: step,
-        deleted: false,
-        is_complete: false,
-        created_at: new Date().toISOString(),
-        last_updated: new Date().toISOString(),
-        ...packageData
-      } as PackageData
-    }
+      // Fallback to localStorage if Supabase fails
+      const localPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]')
+      const existingLocal = localPackages.find((p: PackageData) =>
+        p.user_id === userId && !p.is_complete && !p.deleted
+      )
 
-    // Also save to localStorage as backup
-    const existingLocalPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]');
-    const existingIndex = existingLocalPackages.findIndex((p: PackageData) => p.id === data.id);
-    if (existingIndex >= 0) {
-      existingLocalPackages[existingIndex] = data;
-    } else {
-      existingLocalPackages.push(data);
+      if (existingLocal) {
+        // Update existing local package
+        const updated = {
+          ...existingLocal,
+          ...packageData,
+          step_completed: step,
+          last_updated: new Date().toISOString()
+        }
+        const index = localPackages.findIndex((p: PackageData) => p.id === existingLocal.id)
+        localPackages[index] = updated
+        localStorage.setItem('simpanaja_packages', JSON.stringify(localPackages))
+        return updated
+      } else {
+        // Create new local package
+        const newPackage = {
+          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: userId,
+          device_id: deviceId,
+          status: 'in_progress',
+          step_completed: step,
+          deleted: false,
+          is_complete: false,
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          ...packageData
+        } as PackageData
+        localPackages.push(newPackage)
+        localStorage.setItem('simpanaja_packages', JSON.stringify(localPackages))
+        return newPackage
+      }
     }
-    localStorage.setItem('simpanaja_packages', JSON.stringify(existingLocalPackages));
-
-    return data
   },
 
   // Update package
@@ -191,13 +158,14 @@ export const packageService = {
     return data
   },
 
-  // Complete package (move to payment pending)
+  // Complete package (move to payment pending and mark as complete)
   async completePackage(id: string): Promise<PackageData> {
     const { data, error } = await supabase
       .from('packages')
       .update({
         status: 'payment_pending',
         step_completed: 3,
+        is_complete: true,
         last_updated: new Date().toISOString()
       })
       .eq('id', id)

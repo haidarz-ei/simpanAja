@@ -57,8 +57,8 @@ export interface PackageData {
   // Soft delete
   deleted: boolean
 
-  // Session tracking (for anonymous users)
-  user_session_id: string
+  // User authentication (for authenticated users)
+  user_id?: string
   device_id?: string
 
   // Payment-related fields (now in separate payments table)

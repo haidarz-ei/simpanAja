@@ -150,13 +150,16 @@ export default function Packages() {
     const completeness = calculateCompleteness(pkg);
     const isComplete = completeness === 100;
 
-    // Calculate total cost for packages with any cost data
+    // Only show weight if it's a valid positive number
+    const weightValue = pkg.package_weight ? parseFloat(pkg.package_weight) : 0;
+    const weight = (weightValue > 0) ? `${pkg.package_weight} kg` : undefined;
+
+    // Calculate total cost only for packages with valid data
     let totalCost: number | undefined;
-    if (pkg.package_weight || pkg.packing_options) {
-      const weight = parseFloat(pkg.package_weight || '0');
+    if (weightValue > 0 || (pkg.packing_options && pkg.packing_options.length > 0)) {
       // Mock cost calculation: base cost + weight-based cost + packing cost
       const baseCost = 15000; // Base shipping cost
-      const weightCost = weight * 10000; // Rp 10,000 per kg
+      const weightCost = weightValue * 10000; // Rp 10,000 per kg
       const packingCost = (pkg.packing_options || []).reduce((total: number, option: string) => {
         switch (option) {
           case 'bubble': return total + 5000;
@@ -175,7 +178,7 @@ export default function Packages() {
       sender: { name: pkg.sender_name || "" },
       recipient: { name: pkg.receiver_name || "" },
       address: pkg.receiver_address ? `${pkg.receiver_address}, ${pkg.receiver_city || ''}` : undefined,
-      weight: pkg.package_weight ? `${pkg.package_weight} kg` : undefined,
+      weight,
       packageCode: pkg.tracking_code || undefined,
       totalCost,
       selected: selectedPackages.includes(pkg.id),

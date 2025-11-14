@@ -123,7 +123,7 @@ export default function Step1DataPaket({
   const calculatePriceBreakdown = () => {
     const weight = parseFloat(formData.packageWeight || '0');
     const baseCost = 15000; // Base shipping cost
-    const weightCost = weight * 10000; // Rp 10,000 per kg
+    const weightCost = weight > 0 ? weight * 10000 : 0; // Only charge if weight > 0
     const packingCost = packingOptions.reduce((total, option) => {
       switch (option) {
         case 'bubble': return total + 5000;
@@ -771,7 +771,7 @@ export default function Step1DataPaket({
         </div>
         <div className="mt-2 text-right">
           <Button
-            variant="link"
+            variant="ghost"
             className="text-sm text-primary hover:underline p-0 h-auto"
             onClick={() => setShowPriceDetails(!showPriceDetails)}
           >

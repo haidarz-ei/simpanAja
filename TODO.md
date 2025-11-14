@@ -1,36 +1,30 @@
-# Animation Implementation Plan
+# Fix Incomplete Package Creation Logic
 
-## Overview
-Apply framer-motion animations to all pages similar to Admin dashboard style, including slide-ins, fade-ins with delays, and hover effects.
+## Problem
+- System creates multiple incomplete packages instead of maintaining one
+- Each "Simpan" click creates a new incomplete package
+- Should only have one incomplete package per user that gets updated
 
-## Pages to Update
-- [ ] Home (HeroSection, FeatureSection, HowItWorks)
-- [ ] Packages (ShipmentCard components)
-- [ ] Kirim (ShippingForm)
-- [ ] Pembayaran (payment form)
-- [ ] Riwayat (history page)
+## Solution Plan
 
-## Animation Patterns to Apply
-1. **Slide-in effects**: Elements slide in from left/right/top/bottom
-2. **Fade-in with opacity**: Elements fade in gradually
-3. **Staggered animations**: Multiple elements animate with delays
-4. **Hover effects**: Elements scale/transform on hover
-5. **Container animations**: Page sections animate as a whole
+### 1. Modify packageService.autoSavePackage ✅ COMPLETED
+- Remove the cleanup logic that soft-deletes old packages
+- Always check for existing incomplete package first
+- If exists, update it; if not, create new
+- Ensure only one incomplete package per user_session_id
 
-## Implementation Steps
-1. Update HeroSection.tsx - Add slide-in animations for hero content, floating packages, and buttons
-2. Update FeatureSection.tsx - Add staggered card animations
-3. Update HowItWorks.tsx - Add step-by-step animations with delays
-4. Update Packages.tsx - Add animations to shipment cards and floating button
-5. Update ShippingForm.tsx - Add form step animations and transitions
-6. Update Pembayaran.tsx - Add payment form animations
-7. Update Riwayat.tsx - Add history list animations
-8. Update ShipmentCard.tsx - Add card hover and entry animations
+### 2. Update ShippingForm.tsx ✅ VERIFIED
+- Ensure auto-save only updates the existing incomplete package
+- Remove any logic that might create new packages on step changes
 
-## Animation Types
-- `motion.div` for containers
-- `motion.aside` for sidebars
-- `motion.button` for interactive elements
-- `motion.card` for card components
-- Stagger children animations
-- Hover scale effects
+### 3. Add database constraint (optional)
+- Consider adding unique constraint on user_session_id for incomplete packages
+
+### 4. Test the flow
+- Test creating new package
+- Test updating existing incomplete package
+- Test completing package
+
+## Files Modified
+- client/src/lib/packageService.ts ✅
+- client/src/components/ShippingForm.tsx ✅ (no changes needed)

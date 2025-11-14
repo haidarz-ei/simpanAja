@@ -44,6 +44,10 @@ type Address = {
 
 export default function ShippingForm() {
   const [, navigate] = useLocation();
+  const urlParams = new URLSearchParams(window.location.search);
+  const isNewPackage = urlParams.get('new') === 'true';
+  const editPackageId = urlParams.get('edit');
+
   const [step, setStep] = useState<number>(1);
   const [selectedCourierName, setSelectedCourierName] = useState<string | undefined>(undefined);
   const [selectedServiceCode, setSelectedServiceCode] = useState<string | undefined>(undefined);
@@ -105,17 +109,48 @@ export default function ShippingForm() {
     localStorage.setItem('addressHistory', JSON.stringify(addressHistory));
   }, [addressHistory]);
 
-  // Load incomplete packages on mount (only if not creating new package)
+  // Load incomplete packages on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isNewPackage = urlParams.get('new') === 'true';
+    const editPackageId = urlParams.get('edit');
 
-    if (!isNewPackage) {
-      const loadIncompletePackage = async () => {
-        try {
-          const incompletePackages = await packageService.getIncompletePackages();
-          if (incompletePackages.length > 0) {
-            const pkg = incompletePackages[0]; // Load the most recent incomplete package
+    const loadPackageData = async () => {
+      try {
+        if (isNewPackage) {
+          // Creating new package - reset everything and don't load any existing data
+          setCurrentPackageId(null);
+          setStep(1);
+          setFormData({
+            senderName: "",
+            senderPhone: "",
+            senderAddress: "",
+            senderCity: "",
+            senderProvince: "",
+            senderDistrict: "",
+            senderPostalCode: "",
+            receiverName: "",
+            receiverPhone: "",
+            receiverAddress: "",
+            receiverCity: "",
+            receiverProvince: "",
+            receiverDistrict: "",
+            receiverPostalCode: "",
+            packageWeight: "",
+            packageLength: "",
+            packageWidth: "",
+            packageHeight: "",
+            packageDescription: "",
+          });
+          setSelectedCourierName(undefined);
+          setSelectedServiceCode(undefined);
+          setPackingOptions([]);
+          setPackageCode("");
+          // Don't load any incomplete packages for new package creation
+        } else if (editPackageId) {
+          // Editing specific package
+          const pkg = await packageService.getPackageById(editPackageId);
+          if (pkg) {
             setCurrentPackageId(pkg.id);
             setStep(pkg.step_completed || 1);
 
@@ -146,25 +181,67 @@ export default function ShippingForm() {
             setSelectedCourierName(pkg.courier_name || undefined);
             setSelectedServiceCode(pkg.courier_service_code || undefined);
             setPackingOptions(pkg.packing_options || []);
+            setPackageCode(pkg.tracking_code || "");
 
             toast({
               title: "Paket ditemukan",
               description: "Melanjutkan pengisian formulir yang belum selesai.",
             });
           }
-        } catch (error) {
-          console.error('Error loading incomplete package:', error);
-          // Don't show error toast for now to avoid confusion
-          // toast({
-          //   title: "Error",
-          //   description: "Gagal memuat data paket yang belum selesai.",
-          //   variant: "destructive",
-          // });
-        }
-      };
+        } else {
+          // Default behavior - load most recent incomplete package only if not explicitly creating new
+          const incompletePackage = await packageService.getIncompletePackage();
+          if (incompletePackage) {
+            setCurrentPackageId(incompletePackage.id);
+            setStep(incompletePackage.step_completed || 1);
 
-      loadIncompletePackage();
-    }
+            // Restore form data
+            setFormData({
+              senderName: incompletePackage.sender_name || "",
+              senderPhone: incompletePackage.sender_phone || "",
+              senderAddress: incompletePackage.sender_address || "",
+              senderCity: incompletePackage.sender_city || "",
+              senderProvince: incompletePackage.sender_province || "",
+              senderDistrict: incompletePackage.sender_district || "",
+              senderPostalCode: incompletePackage.sender_postal_code || "",
+              receiverName: incompletePackage.receiver_name || "",
+              receiverPhone: incompletePackage.receiver_phone || "",
+              receiverAddress: incompletePackage.receiver_address || "",
+              receiverCity: incompletePackage.receiver_city || "",
+              receiverProvince: incompletePackage.receiver_province || "",
+              receiverDistrict: incompletePackage.receiver_district || "",
+              receiverPostalCode: incompletePackage.receiver_postal_code || "",
+              packageWeight: incompletePackage.package_weight || "",
+              packageLength: incompletePackage.package_length || "",
+              packageWidth: incompletePackage.package_width || "",
+              packageHeight: incompletePackage.package_height || "",
+              packageDescription: incompletePackage.package_description || "",
+            });
+
+            // Restore selections
+            setSelectedCourierName(incompletePackage.courier_name || undefined);
+            setSelectedServiceCode(incompletePackage.courier_service_code || undefined);
+            setPackingOptions(incompletePackage.packing_options || []);
+            setPackageCode(incompletePackage.tracking_code || "");
+
+            toast({
+              title: "Paket ditemukan",
+              description: "Melanjutkan pengisian formulir yang belum selesai.",
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading package data:', error);
+        // Don't show error toast for now to avoid confusion
+        // toast({
+        //   title: "Error",
+        //   description: "Gagal memuat data paket.",
+        //   variant: "destructive",
+        // });
+      }
+    };
+
+    loadPackageData();
   }, []);
 
   const performAutoSave = async () => {
@@ -449,105 +526,106 @@ export default function ShippingForm() {
       </div>
 
       <Card className="p-6">
-        {step === 1 && (
-          <Step1DataPaket
-            formData={formData}
-            setFormData={setFormData}
-            handleInputChange={handleInputChange}
-            addressHistory={addressHistory}
-            setAddressHistory={setAddressHistory}
-            selectedSenderAddress={selectedSenderAddress}
-            setSelectedSenderAddress={setSelectedSenderAddress}
-            selectedReceiverAddress={selectedReceiverAddress}
-            setSelectedReceiverAddress={setSelectedReceiverAddress}
-            packingOptions={packingOptions}
-            setPackingOptions={setPackingOptions}
-            showSenderHistory={showSenderHistory}
-            setShowSenderHistory={setShowSenderHistory}
-            showReceiverHistory={showReceiverHistory}
-            setShowReceiverHistory={setShowReceiverHistory}
-            showSenderInputModal={showSenderInputModal}
-            setShowSenderInputModal={setShowSenderInputModal}
-            showReceiverInputModal={showReceiverInputModal}
-            setShowReceiverInputModal={setShowReceiverInputModal}
-            searchSenderHistory={searchSenderHistory}
-            setSearchSenderHistory={setSearchSenderHistory}
-            searchReceiverHistory={searchReceiverHistory}
-            setSearchReceiverHistory={setSearchReceiverHistory}
-            editingSenderId={editingSenderId}
-            setEditingSenderId={setEditingSenderId}
-            editingReceiverId={editingReceiverId}
-            setEditingReceiverId={setEditingReceiverId}
-            handleEditSender={handleEditSender}
-            handleDeleteSender={handleDeleteSender}
-            handleEditReceiver={handleEditReceiver}
-            handleDeleteReceiver={handleDeleteReceiver}
-            calculateTotalCost={calculateTotalCost}
-          />
-        )}
+        <>
+          {step === 1 && (
+            <Step1DataPaket
+              formData={formData}
+              setFormData={setFormData}
+              handleInputChange={handleInputChange}
+              addressHistory={addressHistory}
+              setAddressHistory={setAddressHistory}
+              selectedSenderAddress={selectedSenderAddress}
+              setSelectedSenderAddress={setSelectedSenderAddress}
+              selectedReceiverAddress={selectedReceiverAddress}
+              setSelectedReceiverAddress={setSelectedReceiverAddress}
+              packingOptions={packingOptions}
+              setPackingOptions={setPackingOptions}
+              showSenderHistory={showSenderHistory}
+              setShowSenderHistory={setShowSenderHistory}
+              showReceiverHistory={showReceiverHistory}
+setShowReceiverHistory={setShowReceiverHistory}
+              showSenderInputModal={showSenderInputModal}
+              setShowSenderInputModal={setShowSenderInputModal}
+              showReceiverInputModal={showReceiverInputModal}
+              setShowReceiverInputModal={setShowReceiverInputModal}
+              searchSenderHistory={searchSenderHistory}
+              setSearchSenderHistory={setSearchSenderHistory}
+              searchReceiverHistory={searchReceiverHistory}
+              setSearchReceiverHistory={setSearchReceiverHistory}
+              editingSenderId={editingSenderId}
+              setEditingSenderId={setEditingSenderId}
+              editingReceiverId={editingReceiverId}
+              setEditingReceiverId={setEditingReceiverId}
+              handleEditSender={handleEditSender}
+              handleDeleteSender={handleDeleteSender}
+              handleEditReceiver={handleEditReceiver}
+              handleDeleteReceiver={handleDeleteReceiver}
+              calculateTotalCost={calculateTotalCost}
+            />
+          )}
 
-        {step === 2 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Truck className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Kurir</h2>
-            </div>
-
+          {step === 2 && (
             <div className="space-y-6">
-              {/* Pilih Kurir */}
-              <div>
-                <h3 className="font-semibold mb-4">Pilih Kurir</h3>
-                <RadioGroup value={selectedCourierName} onValueChange={(val) => {
-                  setSelectedCourierName(val);
-                  setSelectedServiceCode(undefined); // reset service saat ganti kurir
-                }}>
-                  <div className="space-y-4">
-                    {uniqueCouriers.map((courier) => (
-                      <label
-                        key={courier}
-                        className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                          selectedCourierName === courier ? 'border-primary bg-primary/5' : 'border-card-border'
-                        }`}
-                      >
-                        <RadioGroupItem value={courier} id={courier} />
-                        <div className="font-semibold">{courier}</div>
-                      </label>
-                    ))}
-                  </div>
-                </RadioGroup>
+              <div className="flex items-center gap-2 mb-4">
+                <Truck className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold">Kurir</h2>
               </div>
 
-              {/* Pilih Layanan */}
-              {selectedCourierName && (
+              <div className="space-y-6">
+                {/* Pilih Kurir */}
                 <div>
-                  <h3 className="font-semibold mb-4">Pilih Layanan</h3>
-                  <RadioGroup value={selectedServiceCode} onValueChange={setSelectedServiceCode}>
+                  <h3 className="font-semibold mb-4">Pilih Kurir</h3>
+                  <RadioGroup value={selectedCourierName} onValueChange={(val) => {
+                    setSelectedCourierName(val);
+                    setSelectedServiceCode(undefined); // reset service saat ganti kurir
+                  }}>
                     <div className="space-y-4">
-                      {servicesForSelectedCourier.map((service) => (
+                      {uniqueCouriers.map((courier) => (
                         <label
-                          key={service.code}
+                          key={courier}
                           className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
-                            selectedServiceCode === service.code ? 'border-primary bg-primary/5' : 'border-card-border'
+                            selectedCourierName === courier ? 'border-primary bg-primary/5' : 'border-card-border'
                           }`}
                         >
-                          <RadioGroupItem value={service.code} id={service.code} />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="font-semibold">{service.courier} - {service.service}</div>
-                              <div className="text-xl font-bold text-primary">
-                                Rp {service.price.toLocaleString('id-ID')}
-                              </div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Estimasi: {service.estimatedDays}
-                            </div>
-                          </div>
+                          <RadioGroupItem value={courier} id={courier} />
+                          <div className="font-semibold">{courier}</div>
                         </label>
                       ))}
                     </div>
                   </RadioGroup>
                 </div>
-              )}
+
+                {/* Pilih Layanan */}
+                {selectedCourierName && (
+                  <div>
+                    <h3 className="font-semibold mb-4">Pilih Layanan</h3>
+                    <RadioGroup value={selectedServiceCode} onValueChange={setSelectedServiceCode}>
+                      <div className="space-y-4">
+                        {servicesForSelectedCourier.map((service) => (
+                          <label
+                            key={service.code}
+                            className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer hover-elevate ${
+                              selectedServiceCode === service.code ? 'border-primary bg-primary/5' : 'border-card-border'
+                            }`}
+                          >
+                            <RadioGroupItem value={service.code} id={service.code} />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="font-semibold">{service.courier} - {service.service}</div>
+                                <div className="text-xl font-bold text-primary">
+                                  Rp {service.price.toLocaleString('id-ID')}
+                                </div>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Estimasi: {service.estimatedDays}
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
 
                 <div className="mt-6 bg-muted/50 rounded-lg p-4">
                   <div className="flex justify-between items-center">
@@ -560,36 +638,37 @@ export default function ShippingForm() {
                     <a href="#" className="text-sm text-primary hover:underline">Detail Harga</a>
                   </div>
                 </div>
+              </div>
             </div>
+          )}
+
+          {step === 3 && (
+            <Step3KodePaket packageCode={packageCode} />
+          )}
+
+          <div className="flex gap-4 mt-8">
+            {step > 1 && step < 3 && (
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                className="flex-1"
+                data-testid="button-back"
+              >
+                Kembali
+              </Button>
+            )}
+
+            {step < 3 && (
+              <Button
+                onClick={handleNext}
+                className="flex-1"
+                data-testid={step === 2 ? "button-generate-code" : "button-next"}
+              >
+                {step === 2 ? 'Dapatkan Kode paket' : 'Lanjut'}
+              </Button>
+            )}
           </div>
-        )}
-
-        {step === 3 && (
-          <Step3KodePaket packageCode={packageCode} />
-        )}
-
-        <div className="flex gap-4 mt-8">
-          {step > 1 && step < 3 && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              className="flex-1"
-              data-testid="button-back"
-            >
-              Kembali
-            </Button>
-          )}
-
-          {step < 3 && (
-            <Button
-              onClick={handleNext}
-              className="flex-1"
-              data-testid={step === 2 ? "button-generate-code" : "button-next"}
-            >
-              {step === 2 ? 'Dapatkan Kode paket' : 'Lanjut'}
-            </Button>
-          )}
-        </div>
+        </>
       </Card>
     </div>
   );
