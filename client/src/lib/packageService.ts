@@ -36,31 +36,55 @@ export const packageService = {
 
   // Get single incomplete package for current user (only one allowed)
   async getIncompletePackage(): Promise<PackageData | null> {
-    const userId = await getCurrentUserId()
-    if (!userId) return null
+    try {
+      const userId = await getCurrentUserId()
+      const deviceId = getDeviceId()
 
-    const { data, error } = await supabase
-      .from('packages')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('deleted', false)
-      .eq('is_complete', false)
-      .in('status', ['draft', 'in_progress'])
-      .order('last_updated', { ascending: false })
-      .limit(1)
-      .single()
+      let query = supabase
+        .from('packages')
+        .select('*')
+        .eq('deleted', false)
+        .eq('is_complete', false)
+        .in('status', ['draft', 'in_progress'])
+        .order('last_updated', { ascending: false })
+        .limit(1)
 
-    if (error) {
-      if (error.code === 'PGRST116') return null // Not found
-      throw error
+      if (userId) {
+        query = query.eq('user_id', userId)
+      } else {
+        // For anonymous users, filter by device_id
+        query = query.eq('device_id', deviceId)
+      }
+
+      const { data, error } = await query.single()
+
+      if (error) {
+        if (error.code === 'PGRST116') return null // Not found
+        throw error
+      }
+      return data
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      console.warn('Supabase not available, falling back to localStorage for incomplete package')
+      const localPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]')
+      const userId = await getCurrentUserId()
+      const deviceId = getDeviceId()
+
+      const incompleteLocal = localPackages.find((p: PackageData) =>
+        (p.user_id === userId || p.device_id === deviceId) &&
+        !p.is_complete &&
+        !p.deleted
+      )
+
+      return incompleteLocal || null
     }
-    return data
   },
 
   // Auto-save package (single incomplete package per user)
   async autoSavePackage(packageData: Partial<PackageData>, step: number): Promise<PackageData> {
     const userId = await getCurrentUserId()
-    if (!userId) throw new Error('User not authenticated')
+    // Allow anonymous users to save packages (userId can be null)
+    // if (!userId) throw new Error('User not authenticated')
 
     const deviceId = getDeviceId()
 
@@ -144,55 +168,120 @@ export const packageService = {
 
   // Update package
   async updatePackage(id: string, updates: Partial<PackageData>): Promise<PackageData> {
-    const { data, error } = await supabase
-      .from('packages')
-      .update({
-        ...updates,
-        last_updated: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('packages')
+        .update({
+          ...updates,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      const localPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]')
+      const existingLocal = localPackages.find((p: PackageData) => p.id === id)
+
+      if (existingLocal) {
+        const updated = {
+          ...existingLocal,
+          ...updates,
+          last_updated: new Date().toISOString()
+        }
+        const index = localPackages.findIndex((p: PackageData) => p.id === id)
+        localPackages[index] = updated
+        localStorage.setItem('simpanaja_packages', JSON.stringify(localPackages))
+        return updated
+      } else {
+        throw error
+      }
+    }
   },
 
   // Complete package (move to payment pending and mark as complete)
   async completePackage(id: string): Promise<PackageData> {
-    const { data, error } = await supabase
-      .from('packages')
-      .update({
-        status: 'payment_pending',
-        step_completed: 3,
-        is_complete: true,
-        last_updated: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('packages')
+        .update({
+          status: 'payment_pending',
+          step_completed: 3,
+          is_complete: true,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      const localPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]')
+      const existingLocal = localPackages.find((p: PackageData) => p.id === id)
+
+      if (existingLocal) {
+        const updated = {
+          ...existingLocal,
+          status: 'payment_pending',
+          step_completed: 3,
+          is_complete: true,
+          last_updated: new Date().toISOString()
+        }
+        const index = localPackages.findIndex((p: PackageData) => p.id === id)
+        localPackages[index] = updated
+        localStorage.setItem('simpanaja_packages', JSON.stringify(localPackages))
+        return updated
+      } else {
+        throw error
+      }
+    }
   },
 
   // Finalize package (after payment)
   async finalizePackage(id: string, trackingCode: string): Promise<PackageData> {
-    const { data, error } = await supabase
-      .from('packages')
-      .update({
-        status: 'completed',
-        tracking_code: trackingCode,
-        is_complete: true,
-        submitted_at: new Date().toISOString(),
-        last_updated: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('packages')
+        .update({
+          status: 'completed',
+          tracking_code: trackingCode,
+          is_complete: true,
+          submitted_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      const localPackages = JSON.parse(localStorage.getItem('simpanaja_packages') || '[]')
+      const existingLocal = localPackages.find((p: PackageData) => p.id === id)
+
+      if (existingLocal) {
+        const updated = {
+          ...existingLocal,
+          status: 'completed',
+          tracking_code: trackingCode,
+          is_complete: true,
+          submitted_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        }
+        const index = localPackages.findIndex((p: PackageData) => p.id === id)
+        localPackages[index] = updated
+        localStorage.setItem('simpanaja_packages', JSON.stringify(localPackages))
+        return updated
+      } else {
+        throw error
+      }
+    }
   },
 
   // Soft delete package

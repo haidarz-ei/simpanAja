@@ -7,6 +7,7 @@ import { Package, Truck, CheckCircle } from "lucide-react";
 import Step1DataPaket from "./Step1DataPaket";
 import Step2Kurir from "./Step2Kurir";
 import Step3KodePaket from "./Step3KodePaket";
+import Step4CompleteCard from "./Step4CompleteCard";
 import { packageService } from "@/lib/packageService";
 import { toast } from "@/hooks/use-toast";
 
@@ -118,35 +119,76 @@ export default function ShippingForm() {
     const loadPackageData = async () => {
       try {
         if (isNewPackage) {
-          // Creating new package - reset everything and don't load any existing data
-          setCurrentPackageId(null);
-          setStep(1);
-          setFormData({
-            senderName: "",
-            senderPhone: "",
-            senderAddress: "",
-            senderCity: "",
-            senderProvince: "",
-            senderDistrict: "",
-            senderPostalCode: "",
-            receiverName: "",
-            receiverPhone: "",
-            receiverAddress: "",
-            receiverCity: "",
-            receiverProvince: "",
-            receiverDistrict: "",
-            receiverPostalCode: "",
-            packageWeight: "",
-            packageLength: "",
-            packageWidth: "",
-            packageHeight: "",
-            packageDescription: "",
-          });
-          setSelectedCourierName(undefined);
-          setSelectedServiceCode(undefined);
-          setPackingOptions([]);
-          setPackageCode("");
-          // Don't load any incomplete packages for new package creation
+          // Creating new package - check if there's an existing incomplete package first
+          const incompletePackage = await packageService.getIncompletePackage();
+          if (incompletePackage) {
+            // Load existing incomplete package instead of creating new
+            setCurrentPackageId(incompletePackage.id);
+            setStep(incompletePackage.step_completed || 1);
+
+            // Restore form data
+            setFormData({
+              senderName: incompletePackage.sender_name || "",
+              senderPhone: incompletePackage.sender_phone || "",
+              senderAddress: incompletePackage.sender_address || "",
+              senderCity: incompletePackage.sender_city || "",
+              senderProvince: incompletePackage.sender_province || "",
+              senderDistrict: incompletePackage.sender_district || "",
+              senderPostalCode: incompletePackage.sender_postal_code || "",
+              receiverName: incompletePackage.receiver_name || "",
+              receiverPhone: incompletePackage.receiver_phone || "",
+              receiverAddress: incompletePackage.receiver_address || "",
+              receiverCity: incompletePackage.receiver_city || "",
+              receiverProvince: incompletePackage.receiver_province || "",
+              receiverDistrict: incompletePackage.receiver_district || "",
+              receiverPostalCode: incompletePackage.receiver_postal_code || "",
+              packageWeight: incompletePackage.package_weight || "",
+              packageLength: incompletePackage.package_length || "",
+              packageWidth: incompletePackage.package_width || "",
+              packageHeight: incompletePackage.package_height || "",
+              packageDescription: incompletePackage.package_description || "",
+            });
+
+            // Restore selections
+            setSelectedCourierName(incompletePackage.courier_name || undefined);
+            setSelectedServiceCode(incompletePackage.courier_service_code || undefined);
+            setPackingOptions(incompletePackage.packing_options || []);
+            setPackageCode(incompletePackage.tracking_code || "");
+
+            toast({
+              title: "Paket ditemukan",
+              description: "Melanjutkan pengisian formulir yang belum selesai.",
+            });
+          } else {
+            // No existing incomplete package - reset for new creation
+            setCurrentPackageId(null);
+            setStep(1);
+            setFormData({
+              senderName: "",
+              senderPhone: "",
+              senderAddress: "",
+              senderCity: "",
+              senderProvince: "",
+              senderDistrict: "",
+              senderPostalCode: "",
+              receiverName: "",
+              receiverPhone: "",
+              receiverAddress: "",
+              receiverCity: "",
+              receiverProvince: "",
+              receiverDistrict: "",
+              receiverPostalCode: "",
+              packageWeight: "",
+              packageLength: "",
+              packageWidth: "",
+              packageHeight: "",
+              packageDescription: "",
+            });
+            setSelectedCourierName(undefined);
+            setSelectedServiceCode(undefined);
+            setPackingOptions([]);
+            setPackageCode("");
+          }
         } else if (editPackageId) {
           // Editing specific package
           const pkg = await packageService.getPackageById(editPackageId);
@@ -374,8 +416,8 @@ export default function ShippingForm() {
 
         setStep(3);
       } else if (step === 3) {
-        // Finalize the package
-        await handleSubmit();
+        // Move to final review step
+        setStep(4);
       } else {
         setStep(step + 1);
       }
@@ -507,7 +549,7 @@ export default function ShippingForm() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex justify-between">
-          {[1, 2, 3].map((s, index) => (
+          {[1, 2, 3, 4].map((s, index) => (
             <div key={s} className="flex flex-col items-center flex-1">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold mb-2 ${
                 s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -515,9 +557,9 @@ export default function ShippingForm() {
                 {s}
               </div>
               <span className="text-xs text-muted-foreground text-center">
-                {['Data & Paket', 'Kurir', 'Kode'][index]}
+                {['Data & Paket', 'Kurir', 'Kode', 'Selesai'][index]}
               </span>
-              {s < 3 && (
+              {s < 4 && (
                 <div className={`flex-1 h-1 ${s < step ? 'bg-primary' : 'bg-muted'}`} style={{ width: 'calc(100% - 2.5rem)', marginLeft: '1.25rem', marginTop: '0.5rem' }}></div>
               )}
             </div>
@@ -646,8 +688,17 @@ setShowReceiverHistory={setShowReceiverHistory}
             <Step3KodePaket packageCode={packageCode} />
           )}
 
+          {step === 4 && (
+            <Step4CompleteCard
+              formData={formData}
+              packageCode={packageCode}
+              totalCost={calculateTotalCost()}
+              onFinalize={handleSubmit}
+            />
+          )}
+
           <div className="flex gap-4 mt-8">
-            {step > 1 && step < 3 && (
+            {step > 1 && step < 4 && (
               <Button
                 variant="outline"
                 onClick={handleBack}
@@ -658,13 +709,23 @@ setShowReceiverHistory={setShowReceiverHistory}
               </Button>
             )}
 
-            {step < 3 && (
+            {step < 4 && (
               <Button
                 onClick={handleNext}
                 className="flex-1"
-                data-testid={step === 2 ? "button-generate-code" : "button-next"}
+                data-testid={step === 2 ? "button-generate-code" : step === 3 ? "button-review" : "button-next"}
               >
-                {step === 2 ? 'Dapatkan Kode paket' : 'Lanjut'}
+                {step === 2 ? 'Dapatkan Kode paket' : step === 3 ? 'Lihat Ringkasan' : 'Lanjut'}
+              </Button>
+            )}
+
+            {step === 4 && (
+              <Button
+                onClick={handleSubmit}
+                className="flex-1"
+                data-testid="button-finalize"
+              >
+                Selesai
               </Button>
             )}
           </div>

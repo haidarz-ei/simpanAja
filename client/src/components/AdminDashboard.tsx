@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+// Added Star icon for "Fitur" menu item
 import {
   Package,
   TrendingUp,
@@ -18,6 +19,7 @@ import {
   MapPin,
   DollarSign,
   FileText,
+  Star,
 } from "lucide-react";
 
 //todo: remove mock functionality
@@ -342,6 +344,11 @@ export default function AdminDashboard() {
               <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/20">
                 <Bell className="w-5 h-5 mr-3" />
                 Notifikasi
+              </Button>
+              {/* Added Fitur menu item */}
+              <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/20">
+                <Star className="w-5 h-5 mr-3" />
+                Fitur
               </Button>
             </nav>
 

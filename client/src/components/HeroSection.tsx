@@ -69,8 +69,8 @@ export default function HeroSection() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.6 }}
             >
-              Kirim Paket{" "}
-              <span className="text-primary">Anti Gabut</span>
+              Mau Cepat?{" "}
+              <span className="text-primary">Ya, SimpanAja!</span>
             </motion.h1>
 
             <motion.p
@@ -79,7 +79,7 @@ export default function HeroSection() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.8 }}
             >
-              SimpanAja adalah solusi pengiriman mandiri yang cepat, mudah, dimana saja dan kapan saja
+              Solusi pengiriman mandiri yang cepat, mudah, dimana saja dan kapan saja
             </motion.p>
 
             <motion.div
