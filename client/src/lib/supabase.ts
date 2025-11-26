@@ -59,6 +59,8 @@ export interface PackageData {
 
   // User authentication (for authenticated users)
   user_id?: string
+  // session id for anonymous/session-based storage
+  user_session_id?: string
   device_id?: string
 
   // Payment-related fields (now in separate payments table)
