@@ -10,6 +10,7 @@ import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { packageService } from "@/lib/packageService";
 import { PackageData } from "@/lib/supabase";
+import { useSwipeable } from "react-swipeable";
 
 // Dummy data for demonstration
 const dummyPackages: PackageData[] = [
@@ -172,62 +173,55 @@ export default function Riwayat() {
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const tabValues = ["status", "riwayat", "return", "dibatalkan"] as const;
+  const [currentTab, setCurrentTab] = useState<typeof tabValues[number]>("status");
+
   useEffect(() => {
     const fetchPackages = async () => {
       try {
         const data = await packageService.getPackages();
-        // If no data from database, use dummy data for demonstration
-        if (data.length === 0) {
-          setPackages(dummyPackages);
-        } else {
-          setPackages(data);
-        }
+        setPackages(data && data.length > 0 ? data : dummyPackages);
       } catch (error) {
-        console.error('Error fetching packages:', error);
-        // Fallback to dummy data if database fails
+        console.error("Error fetching packages:", error);
         setPackages(dummyPackages);
       } finally {
         setLoading(false);
       }
     };
-
     fetchPackages();
   }, []);
 
-  const statusPackages = packages.filter(pkg => !pkg.is_complete && pkg.status !== 'cancelled' && pkg.status !== 'returned');
-  const riwayatPackages = packages.filter(pkg => pkg.is_complete);
-  const returnPackages = packages.filter(pkg => pkg.status === 'returned');
-  const dibatalkanPackages = packages.filter(pkg => pkg.status === 'cancelled');
+  const statusPackages = packages.filter(
+    (pkg) => !pkg.is_complete && pkg.status !== "cancelled" && pkg.status !== "returned"
+  );
+  const riwayatPackages = packages.filter((pkg) => pkg.is_complete);
+  const returnPackages = packages.filter((pkg) => pkg.status === "returned");
+  const dibatalkanPackages = packages.filter((pkg) => pkg.status === "cancelled");
 
   const handleTrackPackage = (pkg: PackageData) => {
-    // For now, show tracking details in an alert
-    // This can be expanded to show a modal or navigate to a tracking page
     const trackingInfo = `
 Tracking Code: ${pkg.tracking_code || `PKG-${pkg.id.slice(-6)}`}
-Status: ${pkg.status === 'in_progress' ? 'Dalam Perjalanan' : pkg.status}
-Courier: ${pkg.courier_name || 'N/A'}
-From: ${pkg.sender_city || 'N/A'}
-To: ${pkg.receiver_name || 'N/A'} - ${pkg.receiver_city || 'N/A'}
-Date: ${new Date(pkg.created_at).toLocaleDateString('id-ID')}
-Last Updated: ${new Date(pkg.last_updated).toLocaleDateString('id-ID')}
+Status: ${pkg.status === "in_progress" ? "Dalam Perjalanan" : pkg.status}
+Courier: ${pkg.courier_name || "N/A"}
+From: ${pkg.sender_city || "N/A"}
+To: ${pkg.receiver_name || "N/A"} - ${pkg.receiver_city || "N/A"}
+Date: ${new Date(pkg.created_at).toLocaleDateString("id-ID")}
+Last Updated: ${new Date(pkg.last_updated).toLocaleDateString("id-ID")}
     `.trim();
-
     alert(`Detail Tracking Paket:\n\n${trackingInfo}`);
   };
 
   const renderPackageList = (packages: PackageData[], showTrackButton: boolean = false) => (
     <div className="space-y-4">
       {loading ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Memuat data paket...
-        </div>
+        <div className="text-center py-8 text-muted-foreground">Memuat data paket...</div>
       ) : packages.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           Tidak ada paket dalam kategori ini
         </div>
       ) : (
         packages.map((pkg) => (
-          <Card key={pkg.id} className="p-6 hover-elevate" data-testid={`history-item-${pkg.id}`}>
+          <Card key={pkg.id} className="p-6 hover-elevate">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
@@ -236,39 +230,20 @@ Last Updated: ${new Date(pkg.last_updated).toLocaleDateString('id-ID')}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <MapPin className="w-4 h-4" />
-                  <span>{pkg.receiver_name || 'N/A'} - {pkg.receiver_city || 'N/A'}</span>
+                  <span>{pkg.receiver_name || "N/A"} - {pkg.receiver_city || "N/A"}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {pkg.courier_name || 'N/A'} • {new Date(pkg.created_at).toLocaleDateString('id-ID')}
+                  {pkg.courier_name || "N/A"} • {new Date(pkg.created_at).toLocaleDateString("id-ID")}
                 </div>
               </div>
 
               <div className="flex flex-col items-end gap-4">
-                {pkg.is_complete && (
-                  <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
-                    Selesai
-                  </Badge>
+                {pkg.is_complete && <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">Selesai</Badge>}
+                {!pkg.is_complete && pkg.status !== "cancelled" && pkg.status !== "returned" && (
+                  <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400">Dalam Perjalanan</Badge>
                 )}
-                {!pkg.is_complete && pkg.status === 'completed' && (
-                  <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
-                    Selesai
-                  </Badge>
-                )}
-                {!pkg.is_complete && pkg.status !== 'cancelled' && pkg.status !== 'returned' && (
-                  <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400">
-                    Dalam Perjalanan
-                  </Badge>
-                )}
-                {pkg.status === 'returned' && (
-                  <Badge className="bg-orange-500/10 text-orange-700 dark:text-orange-400">
-                    Return
-                  </Badge>
-                )}
-                {pkg.status === 'cancelled' && (
-                  <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">
-                    Dibatalkan
-                  </Badge>
-                )}
+                {pkg.status === "returned" && <Badge className="bg-orange-500/10 text-orange-700 dark:text-orange-400">Return</Badge>}
+                {pkg.status === "cancelled" && <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">Dibatalkan</Badge>}
 
                 {showTrackButton && (
                   <Button
@@ -289,29 +264,34 @@ Last Updated: ${new Date(pkg.last_updated).toLocaleDateString('id-ID')}
     </div>
   );
 
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const currentIndex = tabValues.indexOf(currentTab);
+      if (currentIndex < tabValues.length - 1) setCurrentTab(tabValues[currentIndex + 1]);
+    },
+    onSwipedRight: () => {
+      const currentIndex = tabValues.indexOf(currentTab);
+      if (currentIndex > 0) setCurrentTab(tabValues[currentIndex - 1]);
+    },
+    trackMouse: true,
+  });
+
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="min-h-[calc(100vh-4rem)] py-8">
+      <main className="flex-1 overflow-auto py-8">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center gap-4 mb-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/')}
-              data-testid="button-back"
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")} data-testid="button-back">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <h1 className="text-3xl font-bold">Riwayat Pengiriman</h1>
-              <p className="text-muted-foreground text-sm">
-                Lihat status dan riwayat pengiriman paket Anda
-              </p>
+              <p className="text-muted-foreground text-sm">Lihat status dan riwayat pengiriman paket Anda</p>
             </div>
           </div>
 
-          <Tabs defaultValue="status" className="w-full">
+          <Tabs value={currentTab} onValueChange={(val) => setCurrentTab(val as typeof tabValues[number])} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="status">Status</TabsTrigger>
               <TabsTrigger value="riwayat">Selesai</TabsTrigger>
@@ -319,26 +299,23 @@ Last Updated: ${new Date(pkg.last_updated).toLocaleDateString('id-ID')}
               <TabsTrigger value="dibatalkan">Dibatalkan</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="status" className="mt-6">
-              {renderPackageList(statusPackages, true)}
+            <TabsContent value="status">
+              <div {...swipeHandlers}>{renderPackageList(statusPackages, true)}</div>
             </TabsContent>
-
-            <TabsContent value="riwayat" className="mt-6">
-              {renderPackageList(riwayatPackages)}
+            <TabsContent value="riwayat">
+              <div {...swipeHandlers}>{renderPackageList(riwayatPackages)}</div>
             </TabsContent>
-
-            <TabsContent value="return" className="mt-6">
-              {renderPackageList(returnPackages)}
+            <TabsContent value="return">
+              <div {...swipeHandlers}>{renderPackageList(returnPackages)}</div>
             </TabsContent>
-
-            <TabsContent value="dibatalkan" className="mt-6">
-              {renderPackageList(dibatalkanPackages)}
+            <TabsContent value="dibatalkan">
+              <div {...swipeHandlers}>{renderPackageList(dibatalkanPackages)}</div>
             </TabsContent>
           </Tabs>
         </div>
       </main>
-      <Footer />
       <BottomNav />
     </div>
   );
 }
+
