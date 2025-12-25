@@ -241,16 +241,16 @@ export default function Packages() {
   };
 
   return (
-  <motion.div
-    className="min-h-screen bg-background pb-32 relative"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.8 }}
-  >
-    <Header />
+    <motion.div
+      className="min-h-screen bg-background pb-32 relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+    >
+      <Header />
 
-    {/* Main Content */}
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {selectedPackages.length > 0 && (
         <motion.div
           className="mb-6 p-4 bg-green-100 border border-green-300 rounded-lg"
@@ -321,9 +321,9 @@ export default function Packages() {
           <Plus className="w-6 h-6" />
         </Button>
       </motion.div>
+      </motion.div>
     </motion.div>
-  </motion.div>
-);
+  );
 
 }
 

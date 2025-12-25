@@ -6,9 +6,14 @@ import BottomNav from "@/components/BottomNav";
 export default function Admin() {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {/* Hide Header and Footer on Admin page for cleaner design */}
+      <div className="hidden">
+        <Header />
+      </div>
       <AdminDashboard />
-      <Footer />
+      <div className="hidden">
+        <Footer />
+      </div>
       <BottomNav />
     </div>
   );

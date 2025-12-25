@@ -1,11 +1,40 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
+import PageLayout from "@/components/PageLayout";
+import { SidebarMenuItem } from "@/components/Sidebar";
+import { Home, Package, History, Settings, MapPin, ArrowLeft, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, MapPin, ArrowLeft, Search } from "lucide-react";
+
+const homeMenuItems: SidebarMenuItem[] = [
+  {
+    id: "beranda",
+    label: "Beranda",
+    icon: <Home className="w-5 h-5" />,
+    href: "/",
+  },
+  {
+    id: "kirim-paket",
+    label: "Kirim Paket",
+    icon: <Package className="w-5 h-5" />,
+    href: "/packages",
+  },
+  {
+    id: "riwayat",
+    label: "Status",
+    icon: <History className="w-5 h-5" />,
+    href: "/riwayat",
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    icon: <Settings className="w-5 h-5" />,
+    href: "/admin",
+  },
+];
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { packageService } from "@/lib/packageService";
