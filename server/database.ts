@@ -4,11 +4,15 @@ import dotenv from 'dotenv';
 // Load environment variables from server/.env
 dotenv.config({ path: './server/.env' });
 
+if (!process.env.SUPABASE_DB_URL) {
+  throw new Error('Missing SUPABASE_DB_URL environment variable. Please set it in server/.env file')
+}
+
 const pool = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
-  ssl: process.env.SUPABASE_DB_URL ? {
+  connectionString: process.env.SUPABASE_DB_URL,
+  ssl: {
     rejectUnauthorized: false // Required for Supabase
-  } : false // No SSL for local development
+  }
 });
 
 // Test database connection
